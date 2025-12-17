@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment variables
+.env
+config/config.php
+
+# Logs
+logs/
+*.log
+
+# Uploads and media files
+E:/videos/
+uploads/
+hls/
+thumbnails/
+temp/
+
+# Database
+*.sql.backup
+database.db
+
+# IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# PHP specific
+composer.phar
+composer.lock
+
+# Session files
+sessions/
+
+# Cache
+cache/
+*.cache

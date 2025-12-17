@@ -1,0 +1,21 @@
+RewriteEngine On
+
+# Enable CORS for video files
+<FilesMatch "\.(m3u8|ts|mp4)$">
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</FilesMatch>
+
+# Redirect to public directory
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(.*)$ public/$1 [L]
+
+# API routes
+RewriteRule ^api/(.*)$ api/$1 [L]
+
+# Embed route
+RewriteRule ^embed/([a-zA-Z0-9-]+)$ public/embed.php?id=$1 [L,QSA]
+
+# Videos static files
+RewriteRule ^videos/(.*)$ E:/videos/$1 [L]
