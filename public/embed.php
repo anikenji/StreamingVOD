@@ -232,27 +232,36 @@ $outroEnd = $video['outro_end'] ?? null;
             bottom: 80px;
             right: 20px;
             padding: 12px 24px;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.3);
             color: #fff;
             font-size: 14px;
             font-weight: 600;
-            border: 2px solid #fff;
-            border-radius: 4px;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
             cursor: pointer;
             z-index: 100;
             display: none;
-            transition: all 0.2s ease;
-            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.1);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
         .skip-button:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.25);
             transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.5), 0 0 60px rgba(255, 255, 255, 0.2);
+            border-color: #fff;
         }
 
         .skip-button.visible {
             display: block;
-            animation: fadeIn 0.3s ease;
+            opacity: 1;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .skip-button.fade-out {
+            animation: fadeOut 0.5s ease forwards;
         }
 
         @keyframes fadeIn {
@@ -264,6 +273,18 @@ $outroEnd = $video['outro_end'] ?? null;
             to {
                 opacity: 1;
                 transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateX(20px);
             }
         }
     </style>
@@ -525,6 +546,30 @@ $outroEnd = $video['outro_end'] ?? null;
             }
         });
 
+        // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
+        document.addEventListener('keydown', function (e) {
+            // F12
+            if (e.keyCode === 123) {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+I
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+C
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+J
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
+                e.preventDefault();
+            }
+            // Ctrl+U
+            if (e.ctrlKey && e.code === 'KeyU') {
+                e.preventDefault();
+            }
+        });
+
         // Update stats every second when visible
         setInterval(updateStats, 1000);
 
@@ -574,35 +619,81 @@ $outroEnd = $video['outro_end'] ?? null;
         });
 
         // --- Skip Intro/Outro Feature ---
-        // Create buttons once and hide them
-        const skipIntroBtn = document.createElement('button');
-        skipIntroBtn.className = 'skip-button';
-        skipIntroBtn.textContent = 'Skip Intro ⏭';
-        skipIntroBtn.style.display = 'none'; // Default hidden
-        playerInstance.getContainer().appendChild(skipIntroBtn);
+        let skipIntroBtn = null;
+        let skipOutroBtn = null;
+        let skipButtonsInitialized = false;
 
-        const skipOutroBtn = document.createElement('button');
-        skipOutroBtn.className = 'skip-button';
-        skipOutroBtn.textContent = 'Skip Ending ⏭';
-        skipOutroBtn.style.display = 'none'; // Default hidden
-        playerInstance.getContainer().appendChild(skipOutroBtn);
+        function showSkipButton(btn) {
+            btn.classList.remove('fade-out');
+            btn.style.display = 'block';
+            btn.classList.add('visible');
+        }
 
-        // Click handlers
-        skipIntroBtn.onclick = function () {
-            if (introEnd !== null) {
-                playerInstance.seek(introEnd);
-                skipIntroBtn.classList.remove('visible');
-                skipIntroBtn.style.display = 'none';
+        function hideSkipButton(btn) {
+            if (btn.style.display === 'block') {
+                btn.classList.add('fade-out');
+                btn.classList.remove('visible');
+                setTimeout(() => {
+                    btn.style.display = 'none';
+                    btn.classList.remove('fade-out');
+                }, 500);
             }
-        };
+        }
 
-        skipOutroBtn.onclick = function () {
-            if (outroEnd !== null) {
-                playerInstance.seek(outroEnd);
-                skipOutroBtn.classList.remove('visible');
-                skipOutroBtn.style.display = 'none';
-            }
-        };
+        function initSkipButtons() {
+            if (skipButtonsInitialized) return;
+            skipButtonsInitialized = true;
+
+            const container = playerInstance.getContainer();
+            console.log('Initializing skip buttons, container:', container);
+
+            // Create Skip Intro button
+            skipIntroBtn = document.createElement('button');
+            skipIntroBtn.className = 'skip-button';
+            skipIntroBtn.id = 'skip-intro-btn';
+            skipIntroBtn.textContent = 'Skip Intro ⏭';
+            skipIntroBtn.style.cssText = 'display: none; position: absolute; bottom: 80px; right: 20px; z-index: 999999;';
+            container.appendChild(skipIntroBtn);
+            console.log('Skip Intro button created:', skipIntroBtn);
+
+            // Create Skip Outro button
+            skipOutroBtn = document.createElement('button');
+            skipOutroBtn.className = 'skip-button';
+            skipOutroBtn.id = 'skip-outro-btn';
+            skipOutroBtn.textContent = 'Skip Ending ⏭';
+            skipOutroBtn.style.cssText = 'display: none; position: absolute; bottom: 80px; right: 20px; z-index: 999999;';
+            container.appendChild(skipOutroBtn);
+            console.log('Skip Outro button created:', skipOutroBtn);
+
+            // Click handlers
+            skipIntroBtn.onclick = function () {
+                console.log('Skip Intro clicked, seeking to:', introEnd);
+                if (introEnd !== null) {
+                    playerInstance.seek(introEnd);
+                    hideSkipButton(skipIntroBtn);
+                }
+            };
+
+            skipOutroBtn.onclick = function () {
+                console.log('Skip Outro clicked, seeking to:', outroEnd);
+                if (outroEnd !== null) {
+                    playerInstance.seek(outroEnd);
+                    hideSkipButton(skipOutroBtn);
+                }
+            };
+        }
+
+        // Initialize buttons when player is ready
+        playerInstance.on('ready', function () {
+            console.log('Player ready event fired');
+            initSkipButtons();
+        });
+
+        // Also try to init on first play in case ready already fired
+        playerInstance.on('firstFrame', function () {
+            console.log('FirstFrame event fired');
+            initSkipButtons();
+        });
 
         playerInstance.on("time", function (e) {
             const position = e.position;
@@ -612,42 +703,45 @@ $outroEnd = $video['outro_end'] ?? null;
                 setCookie(COOKIE_NAME, position);
             }
 
-            // Handle Skip Intro Visibility
-            // Valid if: introStart exists, introEnd exists, and we are within range
+            // Skip if buttons not ready
+            if (!skipIntroBtn || !skipOutroBtn) {
+                return;
+            }
+
+            // Handle Skip Intro Visibility - show throughout entire intro range
             if (introStart !== null && introEnd !== null && introEnd > introStart) {
-                if (position >= introStart && position < introEnd) {
-                    if (skipIntroBtn.style.display !== 'block') {
-                        skipIntroBtn.style.display = 'block';
-                        // Small delay to allow display:block to apply before opacity transition if using CSS animation
-                        requestAnimationFrame(() => skipIntroBtn.classList.add('visible'));
-                    }
-                } else {
-                    if (skipIntroBtn.style.display !== 'none') {
-                        skipIntroBtn.classList.remove('visible');
-                        skipIntroBtn.style.display = 'none';
-                    }
+                const inIntroRange = position >= introStart && position < introEnd;
+                const isShowing = skipIntroBtn.style.display === 'block';
+
+                if (inIntroRange && !isShowing) {
+                    console.log('Showing Skip Intro at position:', position, '(range:', introStart, '-', introEnd, ')');
+                    showSkipButton(skipIntroBtn);
+                } else if (!inIntroRange && isShowing) {
+                    console.log('Hiding Skip Intro at position:', position);
+                    hideSkipButton(skipIntroBtn);
                 }
             }
 
-            // Handle Skip Outro Visibility
+            // Handle Skip Outro Visibility - show throughout entire outro range
             if (outroStart !== null && outroEnd !== null && outroEnd > outroStart) {
-                if (position >= outroStart && position < outroEnd) {
-                    if (skipOutroBtn.style.display !== 'block') {
-                        skipOutroBtn.style.display = 'block';
-                        requestAnimationFrame(() => skipOutroBtn.classList.add('visible'));
-                    }
-                } else {
-                    if (skipOutroBtn.style.display !== 'none') {
-                        skipOutroBtn.classList.remove('visible');
-                        skipOutroBtn.style.display = 'none';
-                    }
+                const inOutroRange = position >= outroStart && position < outroEnd;
+                const isShowing = skipOutroBtn.style.display === 'block';
+
+                if (inOutroRange && !isShowing) {
+                    console.log('Showing Skip Outro at position:', position, '(range:', outroStart, '-', outroEnd, ')');
+                    showSkipButton(skipOutroBtn);
+                } else if (!inOutroRange && isShowing) {
+                    console.log('Hiding Skip Outro at position:', position);
+                    hideSkipButton(skipOutroBtn);
                 }
             }
         });
 
-        // Clear progress on complete
+        // Clear progress on complete and notify parent for auto next episode
         playerInstance.on("complete", function () {
             deleteCookie(COOKIE_NAME);
+            // Gửi message đến trang cha khi video hoàn thành
+            window.parent.postMessage('anikenji_video_complete', '*');
         });
 
         playerInstance.on("error", function (e) {
