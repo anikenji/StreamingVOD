@@ -43,7 +43,13 @@ Default admin credentials:
 
 ### 2. Configuration
 
-Edit `config/config.php`:
+### 2. Configuration
+
+1. Copy the example config file:
+   ```bash
+   cp config/config.example.php config/config.php
+   ```
+2. Edit `config/config.php` and update your settings:
 
 ```php
 // Database

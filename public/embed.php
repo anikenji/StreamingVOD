@@ -549,57 +549,98 @@ $outroEnd = $video['outro_end'] ?? null;
         const outroStart = <?= json_encode($outroStart !== null ? floatval($outroStart) : null) ?>;
         const outroEnd = <?= json_encode($outroEnd !== null ? floatval($outroEnd) : null) ?>;
 
-        console.log('Skip config:', { introStart, introEnd, outroStart, outroEnd });
+        console.log('Video Metadata:', { introStart, introEnd, outroStart, outroEnd });
 
-        // Create skip buttons
-        let skipIntroBtn = null;
-        let skipOutroBtn = null;
+        // --- Only Play On Screen Feature ---
+        console.log('Initializing onlyPlayOnScreen feature...');
 
-        if (introStart !== null && introEnd !== null && introEnd > introStart) {
-            skipIntroBtn = document.createElement('button');
-            skipIntroBtn.className = 'skip-button';
-            skipIntroBtn.textContent = 'Skip Intro ⏭';
-            skipIntroBtn.onclick = function () {
+        // Pause when page is hidden (tab switch, minimize, screen off)
+        document.addEventListener("visibilitychange", function () {
+            if (document.hidden) {
+                const state = playerInstance.getState();
+                if (state === 'playing' || state === 'buffering') {
+                    console.log('Page hidden, pausing video to save resources.');
+                    playerInstance.pause();
+                }
+            }
+        });
+
+        // Prevent playing if hidden (double check)
+        playerInstance.on('play', function () {
+            if (document.hidden) {
+                console.log('Attempted to play while hidden, forcing pause.');
+                playerInstance.pause();
+            }
+        });
+
+        // --- Skip Intro/Outro Feature ---
+        // Create buttons once and hide them
+        const skipIntroBtn = document.createElement('button');
+        skipIntroBtn.className = 'skip-button';
+        skipIntroBtn.textContent = 'Skip Intro ⏭';
+        skipIntroBtn.style.display = 'none'; // Default hidden
+        playerInstance.getContainer().appendChild(skipIntroBtn);
+
+        const skipOutroBtn = document.createElement('button');
+        skipOutroBtn.className = 'skip-button';
+        skipOutroBtn.textContent = 'Skip Ending ⏭';
+        skipOutroBtn.style.display = 'none'; // Default hidden
+        playerInstance.getContainer().appendChild(skipOutroBtn);
+
+        // Click handlers
+        skipIntroBtn.onclick = function () {
+            if (introEnd !== null) {
                 playerInstance.seek(introEnd);
                 skipIntroBtn.classList.remove('visible');
-            };
-            playerInstance.getContainer().appendChild(skipIntroBtn);
-            console.log('Skip Intro button created');
-        }
+                skipIntroBtn.style.display = 'none';
+            }
+        };
 
-        if (outroStart !== null && outroEnd !== null && outroEnd > outroStart) {
-            skipOutroBtn = document.createElement('button');
-            skipOutroBtn.className = 'skip-button';
-            skipOutroBtn.textContent = 'Skip Ending ⏭';
-            skipOutroBtn.onclick = function () {
+        skipOutroBtn.onclick = function () {
+            if (outroEnd !== null) {
                 playerInstance.seek(outroEnd);
                 skipOutroBtn.classList.remove('visible');
-            };
-            playerInstance.getContainer().appendChild(skipOutroBtn);
-            console.log('Skip Outro button created');
-        }
+                skipOutroBtn.style.display = 'none';
+            }
+        };
 
         playerInstance.on("time", function (e) {
+            const position = e.position;
+
             // Save progress
-            if (e.position > 5) {
-                setCookie(COOKIE_NAME, e.position);
+            if (position > 5) {
+                setCookie(COOKIE_NAME, position);
             }
 
-            // Show/hide skip intro button
-            if (skipIntroBtn) {
-                if (e.position >= introStart && e.position < introEnd) {
-                    skipIntroBtn.classList.add('visible');
+            // Handle Skip Intro Visibility
+            // Valid if: introStart exists, introEnd exists, and we are within range
+            if (introStart !== null && introEnd !== null && introEnd > introStart) {
+                if (position >= introStart && position < introEnd) {
+                    if (skipIntroBtn.style.display !== 'block') {
+                        skipIntroBtn.style.display = 'block';
+                        // Small delay to allow display:block to apply before opacity transition if using CSS animation
+                        requestAnimationFrame(() => skipIntroBtn.classList.add('visible'));
+                    }
                 } else {
-                    skipIntroBtn.classList.remove('visible');
+                    if (skipIntroBtn.style.display !== 'none') {
+                        skipIntroBtn.classList.remove('visible');
+                        skipIntroBtn.style.display = 'none';
+                    }
                 }
             }
 
-            // Show/hide skip outro button
-            if (skipOutroBtn) {
-                if (e.position >= outroStart && e.position < outroEnd) {
-                    skipOutroBtn.classList.add('visible');
+            // Handle Skip Outro Visibility
+            if (outroStart !== null && outroEnd !== null && outroEnd > outroStart) {
+                if (position >= outroStart && position < outroEnd) {
+                    if (skipOutroBtn.style.display !== 'block') {
+                        skipOutroBtn.style.display = 'block';
+                        requestAnimationFrame(() => skipOutroBtn.classList.add('visible'));
+                    }
                 } else {
-                    skipOutroBtn.classList.remove('visible');
+                    if (skipOutroBtn.style.display !== 'none') {
+                        skipOutroBtn.classList.remove('visible');
+                        skipOutroBtn.style.display = 'none';
+                    }
                 }
             }
         });
