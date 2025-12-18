@@ -48,7 +48,7 @@ $jobsSql = "SELECT * FROM encoding_jobs WHERE video_id = ? ORDER BY
 $jobs = $db->query($jobsSql, [$videoId]);
 
 // Format encoding jobs
-$formattedJobs = array_map(function($job) {
+$formattedJobs = array_map(function ($job) {
     return [
         'quality' => $job['quality'],
         'status' => $job['status'],
@@ -66,8 +66,14 @@ $formattedJobs = array_map(function($job) {
 
 // Calculate overall progress (same as job progress for single quality)
 $overallProgress = 0;
+$completedJobs = 0;
 if (count($jobs) > 0) {
     $overallProgress = floatval($jobs[0]['progress']);
+    foreach ($jobs as $job) {
+        if ($job['status'] === 'completed') {
+            $completedJobs++;
+        }
+    }
 }
 
 successResponse([

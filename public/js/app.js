@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function setupNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
-    
+
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -37,12 +37,12 @@ function showPage(pageName) {
             item.classList.add('active');
         }
     });
-    
+
     // Update page visibility
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
     });
-    
+
     if (pageName === 'videos') {
         document.getElementById('videos-page').classList.add('active');
         document.getElementById('page-title').textContent = 'My Videos';
@@ -64,25 +64,25 @@ async function loadVideos() {
     const grid = document.getElementById('videos-grid');
     const loading = document.getElementById('videos-loading');
     const empty = document.getElementById('videos-empty');
-    
+
     loading.style.display = 'block';
     grid.innerHTML = '';
     empty.style.display = 'none';
-    
+
     try {
         const response = await fetch('/api/videos/list.php');
         const data = await response.json();
-        
+
         if (data.success) {
             currentVideos = data.videos;
-            
+
             if (currentVideos.length === 0) {
                 loading.style.display = 'none';
                 empty.style.display = 'block';
             } else {
                 loading.style.display = 'none';
                 renderVideos(currentVideos);
-                
+
                 // Start progress polling for processing videos
                 startProgressPolling();
             }
@@ -99,7 +99,7 @@ async function loadVideos() {
 function renderVideos(videos) {
     const grid = document.getElementById('videos-grid');
     grid.innerHTML = '';
-    
+
     videos.forEach(video => {
         const card = createVideoCard(video);
         grid.appendChild(card);
@@ -113,10 +113,10 @@ function createVideoCard(video) {
     const card = document.createElement('div');
     card.className = 'video-card';
     card.onclick = () => showVideoDetail(video.id);
-    
+
     const statusClass = `status-${video.status}`;
     const statusText = video.status.charAt(0).toUpperCase() + video.status.slice(1);
-    
+
     card.innerHTML = `
         <div class="video-thumbnail">
             ${video.thumbnail_url ? `<img src="${video.thumbnail_url}" alt="${video.original_filename}">` : '<div class="placeholder">🎬</div>'}
@@ -137,13 +137,14 @@ function createVideoCard(video) {
             <div class="video-actions">
                 ${video.status === 'completed' ? `
                     <button class="btn-small btn-view" onclick="event.stopPropagation(); openEmbed('${video.id}')">▶ Play</button>
-                    <button class="btn-small btn-view" onclick="event.stopPropagation(); copyEmbedLink('${video.id}')">🔗 Link</button>
+                    <button class="btn-small btn-view" onclick="event.stopPropagation(); copyEmbedLink('${video.id}')">🔗 Embed</button>
+                    <button class="btn-small btn-view" onclick="event.stopPropagation(); copyM3U8Link('${video.id}')">📋 M3U8</button>
                 ` : ''}
                 <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteVideo('${video.id}')">🗑️</button>
             </div>
         </div>
     `;
-    
+
     return card;
 }
 
@@ -153,14 +154,14 @@ function createVideoCard(video) {
 async function showVideoDetail(videoId) {
     const modal = document.getElementById('video-modal');
     const modalBody = document.getElementById('modal-body');
-    
+
     modalBody.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
     modal.classList.add('active');
-    
+
     try {
         const response = await fetch(`/api/videos/detail.php?id=${videoId}`);
         const data = await response.json();
-        
+
         if (data.success) {
             renderVideoDetail(data.video, data.encoding_jobs);
         }
@@ -174,7 +175,7 @@ async function showVideoDetail(videoId) {
  */
 function renderVideoDetail(video, jobs) {
     const modalBody = document.getElementById('modal-body');
-    
+
     const jobsHtml = jobs.map(job => `
         <div class="encoding-job">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -193,7 +194,7 @@ function renderVideoDetail(video, jobs) {
             ` : ''}
         </div>
     `).join('');
-    
+
     modalBody.innerHTML = `
         <h2>${escapeHtml(video.original_filename)}</h2>
         <div style="color: var(--text-muted); margin-bottom: 24px;">
@@ -248,12 +249,26 @@ function openEmbed(videoId) {
  */
 async function copyEmbedLink(videoId) {
     const embedUrl = `${window.location.origin}/embed/${videoId}`;
-    
+
     try {
         await navigator.clipboard.writeText(embedUrl);
         alert('Embed link copied to clipboard!');
     } catch (error) {
         prompt('Copy this link:', embedUrl);
+    }
+}
+
+/**
+ * Copy M3U8 playlist link
+ */
+async function copyM3U8Link(videoId) {
+    const m3u8Url = `${window.location.origin}/movie/hls/${videoId}/video.m3u8`;
+
+    try {
+        await navigator.clipboard.writeText(m3u8Url);
+        alert('M3U8 link copied to clipboard!');
+    } catch (error) {
+        prompt('Copy this M3U8 link:', m3u8Url);
     }
 }
 
@@ -264,14 +279,14 @@ async function deleteVideo(videoId) {
     if (!confirm('Are you sure you want to delete this video? This action cannot be undone.')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`/api/videos/delete.php?id=${videoId}`, {
             method: 'DELETE'
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             alert('Video deleted successfully');
             loadVideos();
@@ -291,16 +306,16 @@ function startProgressPolling() {
     if (progressPolling) {
         clearInterval(progressPolling);
     }
-    
+
     // Poll every 3 seconds
     progressPolling = setInterval(() => {
         const processingVideos = currentVideos.filter(v => v.status === 'processing');
-        
+
         if (processingVideos.length === 0) {
             clearInterval(progressPolling);
             return;
         }
-        
+
         processingVideos.forEach(video => {
             updateVideoProgress(video.id);
         });
@@ -314,14 +329,14 @@ async function updateVideoProgress(videoId) {
     try {
         const response = await fetch(`/api/progress/poll.php?video_id=${videoId}`);
         const data = await response.json();
-        
+
         if (data.success) {
             // Update progress bar
             const progressBar = document.getElementById(`progress-${videoId}`);
             if (progressBar) {
                 progressBar.style.width = `${data.overall_progress}%`;
             }
-            
+
             // Reload if status changed to completed
             if (data.video_status === 'completed') {
                 loadVideos();

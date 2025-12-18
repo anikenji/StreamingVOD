@@ -10,7 +10,7 @@ echo Press Ctrl+C to stop the worker
 echo.
 
 :loop
-php "E:\Code\HLS-Server\workers\process-video.php"
+php "c:\wamp64\www\StreamingVOD\workers\process-video.php"
 if errorlevel 1 (
     echo.
     echo [ERROR] Worker crashed. Restarting in 10 seconds...

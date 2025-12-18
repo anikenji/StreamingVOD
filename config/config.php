@@ -10,16 +10,16 @@
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'hls_streaming');
 define('DB_USER', 'root');
-define('DB_PASS', ''); // Update with your password
+define('DB_PASS', '1234'); // Update with your password
 define('DB_CHARSET', 'utf8mb4');
 
 // ============================================
 // Storage Paths (E: Drive)
 // ============================================
-define('UPLOAD_DIR', 'E:/videos/uploads');
-define('HLS_OUTPUT_DIR', 'E:/videos/hls');
-define('THUMBNAIL_DIR', 'E:/videos/thumbnails');
-define('TEMP_DIR', 'E:/videos/temp');
+define('UPLOAD_DIR', 'E:/movie/uploads');
+define('HLS_OUTPUT_DIR', 'E:/movie/hls');
+define('THUMBNAIL_DIR', 'E:/movie/thumbnails');
+define('TEMP_DIR', 'E:/movie/temp');
 
 // ============================================
 // FFmpeg Configuration
@@ -30,15 +30,15 @@ define('FFPROBE_PATH', 'C:/ffmpeg/bin/ffprobe.exe'); // Update with your path
 // ============================================
 // Server Configuration
 // ============================================
-define('BASE_URL', 'http://localhost'); // Update for production
+define('BASE_URL', 'https://service.anikenji.live/'); // Update for production
 define('API_BASE', BASE_URL . '/api');
-define('HLS_BASE_URL', BASE_URL . '/videos/hls');
-define('THUMBNAIL_BASE_URL', BASE_URL . '/videos/thumbnails');
+define('HLS_BASE_URL', BASE_URL . '/movie/hls');
+define('THUMBNAIL_BASE_URL', BASE_URL . '/movie/thumbnails');
 
 // ============================================
 // JWPlayer Configuration
 // ============================================
-define('JWPLAYER_KEY', 'YOUR_JWPLAYER_LICENSE_KEY'); // Replace with your actual key
+define('JWPLAYER_KEY', 'ITWMv7t88JGzI0xPwW8I0+LveiXX9SWbfdmt0ArUSyc=');
 define('JWPLAYER_CDN', 'https://cdn.jwplayer.com/libraries/YOUR_KEY.js');
 
 // ============================================
@@ -109,21 +109,24 @@ define('MAX_CONCURRENT_ENCODES', 3); // max simultaneous encoding jobs
 /**
  * Get encoding profile
  */
-function getEncodingProfile() {
+function getEncodingProfile()
+{
     return ENCODING_PROFILE;
 }
 
 /**
  * Get encoding quality level
  */
-function getEncodingQuality() {
+function getEncodingQuality()
+{
     return ENCODE_QUALITY;
 }
 
 /**
  * Format bytes to human readable size
  */
-function formatBytes($bytes, $precision = 2) {
+function formatBytes($bytes, $precision = 2)
+{
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     $bytes = max($bytes, 0);
     $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
@@ -135,7 +138,9 @@ function formatBytes($bytes, $precision = 2) {
 /**
  * Format duration from seconds to HH:MM:SS
  */
-function formatDuration($seconds) {
+function formatDuration($seconds)
+{
+    $seconds = intval($seconds);
     $hours = floor($seconds / 3600);
     $minutes = floor(($seconds % 3600) / 60);
     $seconds = $seconds % 60;

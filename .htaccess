@@ -1,4 +1,5 @@
 RewriteEngine On
+RewriteBase /StreamingVOD/
 
 # Enable CORS for video files
 <FilesMatch "\.(m3u8|ts|mp4)$">
@@ -7,15 +8,15 @@ RewriteEngine On
     Header set Access-Control-Allow-Headers "Content-Type"
 </FilesMatch>
 
-# Redirect to public directory
-RewriteCond %{REQUEST_URI} !^/public/
-RewriteRule ^(.*)$ public/$1 [L]
+# Don't rewrite if already in public or api
+RewriteCond %{REQUEST_URI} ^/StreamingVOD/public/ [OR]
+RewriteCond %{REQUEST_URI} ^/StreamingVOD/api/
+RewriteRule ^ - [L]
 
-# API routes
-RewriteRule ^api/(.*)$ api/$1 [L]
+# Redirect root to public directory
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/$1 [L]
 
 # Embed route
 RewriteRule ^embed/([a-zA-Z0-9-]+)$ public/embed.php?id=$1 [L,QSA]
-
-# Videos static files
-RewriteRule ^videos/(.*)$ E:/videos/$1 [L]

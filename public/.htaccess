@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# Embed route: /embed/{id} -> embed.php?id={id}
+RewriteRule ^embed/([a-zA-Z0-9-]+)$ embed.php?id=$1 [L,QSA]
+
+# If file or directory exists, serve it directly
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Otherwise, route to index.php (SPA fallback)
+RewriteRule ^(.*)$ index.php [L,QSA]
