@@ -132,6 +132,37 @@ $user = getCurrentUser();
                     </div>
                 </div>
             </div>
+
+            <!-- Users Page (Admin Only) -->
+            <div id="users-page" class="page">
+                <div class="users-container">
+                    <div class="users-table-wrapper">
+                        <table class="users-table" id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Created</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-tbody">
+                                <!-- Users will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="loading" id="users-loading">
+                        <div class="spinner"></div>
+                        <p>Loading users...</p>
+                    </div>
+                    <div class="empty-state" id="users-empty" style="display: none;">
+                        <div class="empty-icon">👥</div>
+                        <h3>No users found</h3>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 

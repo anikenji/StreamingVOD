@@ -54,6 +54,10 @@ function showPage(pageName) {
     } else if (pageName === 'upload') {
         document.getElementById('upload-page').classList.add('active');
         document.getElementById('page-title').textContent = 'Upload Video';
+    } else if (pageName === 'users') {
+        document.getElementById('users-page').classList.add('active');
+        document.getElementById('page-title').textContent = 'User Management';
+        loadUsers();
     }
 }
 
@@ -1071,5 +1075,204 @@ async function saveEpisodeMetadata(event) {
         }
     } catch (error) {
         alert('Failed to save: ' + error.message);
+    }
+}
+
+// ================================
+// User Management Functions
+// ================================
+
+let currentUsers = [];
+
+/**
+ * Load users from API (admin only)
+ */
+async function loadUsers() {
+    const tbody = document.getElementById('users-tbody');
+    const loading = document.getElementById('users-loading');
+    const empty = document.getElementById('users-empty');
+    const table = document.getElementById('users-table');
+
+    if (!tbody) return;
+
+    loading.style.display = 'block';
+    table.style.display = 'none';
+    empty.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/users/list.php');
+        const data = await response.json();
+
+        loading.style.display = 'none';
+
+        if (data.success && data.users.length > 0) {
+            currentUsers = data.users;
+            table.style.display = 'table';
+            renderUsers(data.users);
+        } else if (data.success) {
+            empty.style.display = 'block';
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" style="color: var(--danger); text-align: center;">${data.error || 'Failed to load users'}</td></tr>`;
+            table.style.display = 'table';
+        }
+    } catch (error) {
+        console.error('Failed to load users:', error);
+        loading.style.display = 'none';
+        tbody.innerHTML = '<tr><td colspan="6" style="color: var(--danger); text-align: center;">Failed to load users</td></tr>';
+        table.style.display = 'table';
+    }
+}
+
+/**
+ * Render users in table
+ */
+function renderUsers(users) {
+    const tbody = document.getElementById('users-tbody');
+
+    tbody.innerHTML = users.map(user => {
+        const roleClass = user.role === 'admin' ? 'role-admin' : 'role-user';
+        const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : 'N/A';
+        const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString('vi-VN') : 'Never';
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(user.username)}</strong></td>
+                <td>${escapeHtml(user.email)}</td>
+                <td><span class="role-badge ${roleClass}">${user.role}</span></td>
+                <td>${createdDate}</td>
+                <td>${lastLogin}</td>
+                <td>
+                    <div class="user-actions">
+                        <button class="btn-icon btn-edit" onclick="showChangePasswordModal(${user.id}, '${escapeHtml(user.username)}')" title="Change Password">🔑</button>
+                        <button class="btn-icon btn-danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.username)}')" title="Delete User">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+/**
+ * Show change password modal
+ */
+function showChangePasswordModal(userId, username) {
+    // Create modal if not exists
+    let modal = document.getElementById('change-password-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'change-password-modal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="modal-close" onclick="closeChangePasswordModal()">&times;</span>
+            <h2>🔑 Đổi mật khẩu</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">User: <strong>${username}</strong></p>
+            
+            <form onsubmit="changeUserPassword(event, ${userId})">
+                <div class="form-group">
+                    <label>Mật khẩu hiện tại *</label>
+                    <input type="password" id="current-password" required placeholder="Nhập mật khẩu hiện tại">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu mới *</label>
+                    <input type="password" id="new-password" required minlength="6" placeholder="Tối thiểu 6 ký tự">
+                </div>
+                <div class="form-group">
+                    <label>Xác nhận mật khẩu *</label>
+                    <input type="password" id="confirm-password" required placeholder="Nhập lại mật khẩu">
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Đổi mật khẩu</button>
+            </form>
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+function closeChangePasswordModal() {
+    const modal = document.getElementById('change-password-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Change user password
+ */
+async function changeUserPassword(event, userId) {
+    event.preventDefault();
+
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+
+    if (newPassword !== confirmPassword) {
+        alert('Mật khẩu xác nhận không khớp!');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        alert('Mật khẩu phải có ít nhất 6 ký tự!');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/users/change-password.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            closeChangePasswordModal();
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 24px; border-radius: 8px; z-index: 9999;';
+            toast.textContent = 'Đổi mật khẩu thành công!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        } else {
+            alert('Lỗi: ' + data.error);
+        }
+    } catch (error) {
+        alert('Đổi mật khẩu thất bại: ' + error.message);
+    }
+}
+
+/**
+ * Delete user
+ */
+async function deleteUser(userId, username) {
+    if (!confirm(`Bạn có chắc muốn xóa user "${username}"?\n\nTất cả video của user này cũng sẽ bị xóa!`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/users/delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            loadUsers(); // Refresh list
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 24px; border-radius: 8px; z-index: 9999;';
+            toast.textContent = data.message || 'User deleted!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        } else {
+            alert('Lỗi: ' + data.error);
+        }
+    } catch (error) {
+        alert('Xóa user thất bại: ' + error.message);
     }
 }
