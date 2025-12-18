@@ -180,7 +180,7 @@ function renderVideoDetail(video, jobs) {
         <div class="encoding-job">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <strong>${job.quality}</strong>
-                <span class="status-badge status-${job.status}">${job.status}</span>
+                <span class="status-badge status-${job.status}" style="position: static;">${job.status}</span>
             </div>
             ${job.status === 'processing' ? `
                 <div class="progress-bar">
@@ -196,7 +196,10 @@ function renderVideoDetail(video, jobs) {
     `).join('');
 
     modalBody.innerHTML = `
-        <h2>${escapeHtml(video.original_filename)}</h2>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-right: 40px;">
+            <h2 style="margin: 0;">${escapeHtml(video.original_filename)}</h2>
+            <span class="status-badge status-${video.status}" style="position: static; flex-shrink: 0;">${video.status}</span>
+        </div>
         <div style="color: var(--text-muted); margin-bottom: 24px;">
             ${video.duration_formatted} • ${video.file_size_formatted}
         </div>
