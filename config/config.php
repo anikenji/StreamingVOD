@@ -55,6 +55,13 @@ define('SESSION_LIFETIME', 86400); // 24 hours in seconds
 define('SESSION_NAME', 'HLS_SESSION');
 
 // ============================================
+// Stream Security Configuration
+// ============================================
+define('STREAM_SECRET_KEY', 'Ak7Xm9Qz2Lp5Wv8Nc3Yh6Tf1Rj4Bd0Gs'); // Change this!
+define('STREAM_TOKEN_EXPIRY', 4 * 60 * 60); // 4 hours
+define('ALLOWED_EMBED_DOMAINS', ['anikenji.live', 'service.anikenji.live', 'localhost']);
+
+// ============================================
 // Encoding Configuration
 // ============================================
 // Single quality encoding - maintain source resolution
@@ -62,9 +69,9 @@ define('ENCODE_QUALITY', 'source'); // Use 'source' to maintain original resolut
 
 // Encoding Profile (based on original convert.bat)
 define('ENCODING_PROFILE', [
-    'video_bitrate' => '4000k',
-    'max_bitrate' => '4500k',
-    'buffer_size' => '8000k',
+    'video_bitrate' => '1500k',
+    'max_bitrate' => '2000k',
+    'buffer_size' => '4000k',
     'audio_bitrate' => '192k',
     'preset' => 'fast',
 ]);

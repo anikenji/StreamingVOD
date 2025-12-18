@@ -2,11 +2,12 @@
 /**
  * JWPlayer Embed Page with Netflix Skin
  * Supports: /embed/{id} or /embed.php?id=xxx
- * Features: Continue watching, gradient controls
+ * Features: Continue watching, gradient controls, secured streaming
  */
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/security.php';
 
 // Try to get video ID from query string first
 $videoId = $_GET['id'] ?? '';
@@ -15,13 +16,19 @@ $videoId = $_GET['id'] ?? '';
 if (empty($videoId)) {
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     $path = parse_url($requestUri, PHP_URL_PATH);
-    if (preg_match('#/embed/([a-zA-Z0-9-]+)#', $path, $matches)) {
+    if (preg_match('#/embed/([a-zA-Z0-9_-]+)#', $path, $matches)) {
         $videoId = $matches[1];
     }
 }
 
 if (empty($videoId)) {
     die('Video ID required');
+}
+
+// Check if videoId is an encrypted token or plain ID
+$decodedId = decryptVideoToken($videoId);
+if ($decodedId !== false) {
+    $videoId = $decodedId;
 }
 
 $db = db();
@@ -38,9 +45,19 @@ if ($video['status'] !== 'completed') {
     die('Video is still processing. Please check back later.');
 }
 
-$masterPlaylistUrl = HLS_BASE_URL . '/' . $videoId . '/video.m3u8';
+// Generate encrypted stream token for secure playback
+$streamToken = encryptVideoToken($videoId);
+$securedPlaylistUrl = BASE_URL . 'api/stream/playlist.php?token=' . urlencode($streamToken);
+
 $title = htmlspecialchars($video['original_filename']);
 $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId . '.jpg' : '';
+
+// Episode metadata
+$subtitleUrl = $video['subtitle_url'] ?? null;
+$introStart = $video['intro_start'] ?? null;
+$introEnd = $video['intro_end'] ?? null;
+$outroStart = $video['outro_start'] ?? null;
+$outroEnd = $video['outro_end'] ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -64,16 +81,32 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             background: #000;
             font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
             overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         #player-container {
             width: 100%;
-            height: 100vh;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
+        /* 
+         * Player sizing: fit entirely within viewport
+         * - Portrait mode: limited by width
+         * - Landscape mode: limited by height
+         */
         #player {
+            max-width: 100vw;
+            max-height: 100vh;
             width: 100%;
-            height: 100%;
         }
 
         /* Hide video title */
@@ -83,9 +116,21 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             display: none !important;
         }
 
-        /* Gradient background for controls */
+        /* Gradient background for controls - only show when controls visible */
         .jwplayer .jw-controls {
-            background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 30%, transparent 60%) !important;
+            background: transparent !important;
+        }
+
+        /* Show gradient only when controls are active/visible */
+        .jwplayer.jw-state-idle .jw-controls,
+        .jwplayer.jw-state-paused .jw-controls,
+        .jwplayer.jw-flag-user-inactive:not(.jw-state-paused) .jw-controls {
+            background: transparent !important;
+        }
+
+        .jwplayer:not(.jw-flag-user-inactive) .jw-controls,
+        .jwplayer.jw-state-paused .jw-controls {
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 20%, transparent 50%) !important;
         }
 
         .jwplayer .jw-controlbar {
@@ -118,7 +163,7 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             padding: 32px 40px;
             text-align: center;
             max-width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
         }
 
         .resume-modal h3 {
@@ -180,6 +225,47 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             background: #c82333;
             transform: scale(1.02);
         }
+
+        /* Skip Intro/Outro Button */
+        .skip-button {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            padding: 12px 24px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 100;
+            display: none;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .skip-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .skip-button.visible {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
     </style>
 </head>
 
@@ -203,7 +289,7 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
 
     <!-- JWPlayer Core -->
     <script src="/js/jwplayer/jwplayer-8.9.3.js"></script>
-    <script>jwplayer.key = "<?= JWPLAYER_KEY ?>";</script>
+    <script>(function () { var _ = atob; jwplayer.key = _("<?= base64_encode(JWPLAYER_KEY) ?>"); })();</script>
 
     <!-- HLS.js for HLS playback -->
     <script src="/js/jwplayer/hls.min.js"></script>
@@ -212,22 +298,22 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
     <script>
         const VIDEO_ID = "<?= $videoId ?>";
         const COOKIE_NAME = `watch_progress_${VIDEO_ID}`;
-        
+
         // Cookie helpers
         function setCookie(name, value, days = 30) {
             const expires = new Date(Date.now() + days * 864e5).toUTCString();
             document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
         }
-        
+
         function getCookie(name) {
             const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
             return match ? parseFloat(match[2]) : null;
         }
-        
+
         function deleteCookie(name) {
             document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
         }
-        
+
         // Format time display
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -235,7 +321,7 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             return `${mins} phút ${secs} giây`;
         }
 
-        // Initialize JWPlayer
+        // Initialize JWPlayer with secured playlist URL
         const playerInstance = jwplayer("player").setup({
             controls: true,
             displaytitle: false,
@@ -255,32 +341,40 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             playlist: [{
                 image: "<?= $thumbnailUrl ?>",
                 sources: [{
-                    file: "<?= $masterPlaylistUrl ?>",
+                    file: "<?= $securedPlaylistUrl ?>",
                     type: "hls"
-                }]
+                }]<?php if ($subtitleUrl): ?>,
+                    tracks: [{
+                        file: "<?= $subtitleUrl ?>",
+                        kind: "captions",
+                        label: "Vietnamese",
+                        default: true
+                    }]
+                <?php endif; ?>
             }],
 
             width: "100%",
-            height: "100%",
             aspectratio: "16:9",
+            stretching: "uniform",
             autostart: false,
             primary: "html5",
             hlshtml: true,
-            preload: "metadata"
+            preload: "metadata",
+            playbackRateControls: [0.5, 0.75, 1, 1.25, 1.5, 2]
         });
 
         // Resume watching logic
         let savedPosition = getCookie(COOKIE_NAME);
         let hasShownModal = false;
 
-        playerInstance.on("ready", function() {
+        playerInstance.on("ready", function () {
             // Check for saved position and show modal
             if (savedPosition && savedPosition > 10) {
                 document.getElementById("resumeTimeDisplay").textContent = formatTime(savedPosition);
                 document.getElementById("resumeModal").classList.add("active");
                 hasShownModal = true;
             }
-            
+
             // Custom controls
             try {
                 const playerContainer = playerInstance.getContainer();
@@ -289,6 +383,68 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
                 const timeSlider = playerContainer.querySelector(".jw-slider-time");
                 if (spacer && timeSlider) {
                     buttonContainer.replaceChild(timeSlider, spacer);
+                }
+
+                // Add Forward 10s button (clone from rewind button)
+                const rewindContainer = playerContainer.querySelector(".jw-display-icon-rewind");
+                if (rewindContainer) {
+                    const forwardContainer = rewindContainer.cloneNode(true);
+                    const forwardDisplayButton = forwardContainer.querySelector(".jw-icon-rewind");
+                    if (forwardDisplayButton) {
+                        forwardDisplayButton.style.transform = "scaleX(-1)";
+                        forwardDisplayButton.ariaLabel = "Forward 10 Seconds";
+                        const nextContainer = playerContainer.querySelector(".jw-display-icon-next");
+                        if (nextContainer) {
+                            nextContainer.parentNode.insertBefore(forwardContainer, nextContainer);
+                        }
+
+                        // Control bar forward button
+                        const rewindControlBarButton = buttonContainer.querySelector(".jw-icon-rewind");
+                        if (rewindControlBarButton) {
+                            const forwardControlBarButton = rewindControlBarButton.cloneNode(true);
+                            forwardControlBarButton.style.transform = "scaleX(-1)";
+                            forwardControlBarButton.ariaLabel = "Forward 10 Seconds";
+                            rewindControlBarButton.parentNode.insertBefore(forwardControlBarButton, rewindControlBarButton.nextElementSibling);
+
+                            // Add click handlers
+                            [forwardDisplayButton, forwardControlBarButton].forEach((button) => {
+                                button.onclick = () => {
+                                    playerInstance.seek(playerInstance.getPosition() + 10);
+                                };
+                            });
+                        }
+                    }
+                }
+
+                // Add PiP (Picture in Picture) button
+                if (document.pictureInPictureEnabled) {
+                    const pipIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>`;
+                    const pipBtn = document.createElement('div');
+                    pipBtn.className = 'jw-icon jw-icon-inline jw-button-color jw-reset jw-icon-pip';
+                    pipBtn.setAttribute('role', 'button');
+                    pipBtn.setAttribute('tabindex', '0');
+                    pipBtn.setAttribute('aria-label', 'Picture in Picture');
+                    pipBtn.innerHTML = pipIconSvg;
+                    pipBtn.style.cursor = 'pointer';
+                    pipBtn.onclick = async () => {
+                        try {
+                            const video = playerContainer.querySelector('video');
+                            if (document.pictureInPictureElement) {
+                                await document.exitPictureInPicture();
+                            } else if (video) {
+                                await video.requestPictureInPicture();
+                            }
+                        } catch (err) {
+                            console.log('PiP error:', err);
+                        }
+                    };
+                    // Insert before fullscreen button
+                    const fullscreenBtn = buttonContainer.querySelector('.jw-icon-fullscreen');
+                    if (fullscreenBtn) {
+                        buttonContainer.insertBefore(pipBtn, fullscreenBtn);
+                    } else {
+                        buttonContainer.appendChild(pipBtn);
+                    }
                 }
 
                 // Hide next button
@@ -301,14 +457,85 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             }
         });
 
+        // Video Stats Info (toggle with 'i' key or right-click menu)
+        let statsOverlay = null;
+
+        function createStatsOverlay() {
+            if (statsOverlay) return;
+            statsOverlay = document.createElement('div');
+            statsOverlay.id = 'video-stats';
+            statsOverlay.style.cssText = `
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: rgba(0,0,0,0.85);
+                color: #fff;
+                padding: 15px 20px;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 12px;
+                z-index: 100;
+                max-width: 400px;
+                display: none;
+            `;
+            playerInstance.getContainer().appendChild(statsOverlay);
+        }
+
+        function updateStats() {
+            if (!statsOverlay || statsOverlay.style.display === 'none') return;
+            const pos = playerInstance.getPosition();
+            const dur = playerInstance.getDuration();
+            const buf = playerInstance.getBuffer();
+            const quality = playerInstance.getVisualQuality();
+            const vol = playerInstance.getVolume();
+            const videoTitle = <?= json_encode($video['original_filename']) ?>;
+            const videoId = <?= json_encode($videoId) ?>;
+
+            statsOverlay.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px;">
+                    <div><strong>Title</strong> ${videoTitle}</div>
+                    <div><strong>Duration</strong> ${formatTime(dur)}</div>
+                    <div><strong>Video ID</strong> ${videoId.substring(0, 8)}...</div>
+                    <div><strong>Position</strong> ${formatTime(pos)}</div>
+                    <div><strong>Buffer</strong> ${buf.toFixed(1)}%</div>
+                    <div><strong>Resolution</strong> ${quality?.level?.width || 'N/A'}x${quality?.level?.height || 'N/A'}</div>
+                    <div><strong>Bitrate</strong> ${quality?.level?.bitrate ? Math.round(quality.level.bitrate / 1000) + 'k' : 'N/A'}</div>
+                    <div><strong>Volume</strong> ${vol}%</div>
+                    <div><strong>Stream Type</strong> HLS</div>
+                    <div><strong>Provider</strong> JWPlayer</div>
+                </div>
+                <div style="margin-top: 10px; font-size: 10px; color: #888;">Press 'i' to close</div>
+            `;
+        }
+
+        function toggleStats() {
+            createStatsOverlay();
+            if (statsOverlay.style.display === 'none') {
+                statsOverlay.style.display = 'block';
+                updateStats();
+            } else {
+                statsOverlay.style.display = 'none';
+            }
+        }
+
+        // Toggle stats with 'i' key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'i' || e.key === 'I') {
+                toggleStats();
+            }
+        });
+
+        // Update stats every second when visible
+        setInterval(updateStats, 1000);
+
         // Modal button handlers
-        document.getElementById("btnResume").addEventListener("click", function() {
+        document.getElementById("btnResume").addEventListener("click", function () {
             document.getElementById("resumeModal").classList.remove("active");
             playerInstance.seek(savedPosition);
             playerInstance.play();
         });
 
-        document.getElementById("btnRestart").addEventListener("click", function() {
+        document.getElementById("btnRestart").addEventListener("click", function () {
             document.getElementById("resumeModal").classList.remove("active");
             deleteCookie(COOKIE_NAME);
             savedPosition = 0;
@@ -316,21 +543,76 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
             playerInstance.play();
         });
 
-        // Save progress periodically
-        playerInstance.on("time", function(e) {
+        // Save progress periodically AND handle skip buttons
+        const introStart = <?= json_encode($introStart !== null ? floatval($introStart) : null) ?>;
+        const introEnd = <?= json_encode($introEnd !== null ? floatval($introEnd) : null) ?>;
+        const outroStart = <?= json_encode($outroStart !== null ? floatval($outroStart) : null) ?>;
+        const outroEnd = <?= json_encode($outroEnd !== null ? floatval($outroEnd) : null) ?>;
+
+        console.log('Skip config:', { introStart, introEnd, outroStart, outroEnd });
+
+        // Create skip buttons
+        let skipIntroBtn = null;
+        let skipOutroBtn = null;
+
+        if (introStart !== null && introEnd !== null && introEnd > introStart) {
+            skipIntroBtn = document.createElement('button');
+            skipIntroBtn.className = 'skip-button';
+            skipIntroBtn.textContent = 'Skip Intro ⏭';
+            skipIntroBtn.onclick = function () {
+                playerInstance.seek(introEnd);
+                skipIntroBtn.classList.remove('visible');
+            };
+            playerInstance.getContainer().appendChild(skipIntroBtn);
+            console.log('Skip Intro button created');
+        }
+
+        if (outroStart !== null && outroEnd !== null && outroEnd > outroStart) {
+            skipOutroBtn = document.createElement('button');
+            skipOutroBtn.className = 'skip-button';
+            skipOutroBtn.textContent = 'Skip Ending ⏭';
+            skipOutroBtn.onclick = function () {
+                playerInstance.seek(outroEnd);
+                skipOutroBtn.classList.remove('visible');
+            };
+            playerInstance.getContainer().appendChild(skipOutroBtn);
+            console.log('Skip Outro button created');
+        }
+
+        playerInstance.on("time", function (e) {
+            // Save progress
             if (e.position > 5) {
                 setCookie(COOKIE_NAME, e.position);
+            }
+
+            // Show/hide skip intro button
+            if (skipIntroBtn) {
+                if (e.position >= introStart && e.position < introEnd) {
+                    skipIntroBtn.classList.add('visible');
+                } else {
+                    skipIntroBtn.classList.remove('visible');
+                }
+            }
+
+            // Show/hide skip outro button
+            if (skipOutroBtn) {
+                if (e.position >= outroStart && e.position < outroEnd) {
+                    skipOutroBtn.classList.add('visible');
+                } else {
+                    skipOutroBtn.classList.remove('visible');
+                }
             }
         });
 
         // Clear progress on complete
-        playerInstance.on("complete", function() {
+        playerInstance.on("complete", function () {
             deleteCookie(COOKIE_NAME);
         });
 
-        playerInstance.on("error", function(e) {
+        playerInstance.on("error", function (e) {
             console.error("Player error:", e);
         });
+
     </script>
 </body>
 

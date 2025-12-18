@@ -38,6 +38,10 @@ $user = getCurrentUser();
                     <span class="icon">📹</span>
                     <span>My Videos</span>
                 </a>
+                <a href="#" class="nav-item" data-page="movies">
+                    <span class="icon">🎬</span>
+                    <span>Movies</span>
+                </a>
                 <a href="#" class="nav-item" data-page="upload">
                     <span class="icon">⬆️</span>
                     <span>Upload</span>
@@ -78,13 +82,33 @@ $user = getCurrentUser();
                 </div>
                 <div class="loading" id="videos-loading">
                     <div class="spinner"></div>
-                    <p>Loading videos...</p>
                 </div>
                 <div class="empty-state" id="videos-empty" style="display: none;">
                     <div class="empty-icon">📹</div>
                     <h3>No videos yet</h3>
                     <p>Upload your first video to get started</p>
                     <button class="btn-primary" onclick="showUploadPage()">Upload Video</button>
+                </div>
+            </div>
+
+            <!-- Movies Page -->
+            <div id="movies-page" class="page">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h3>🎬 My Movies/Series</h3>
+                    <button class="btn-primary" onclick="showCreateMovieModal()">+ New Movie</button>
+                </div>
+                <div class="movies-grid" id="movies-grid">
+                    <!-- Movies will be loaded here -->
+                </div>
+                <div class="loading" id="movies-loading">
+                    <div class="spinner"></div>
+                    <p>Loading movies...</p>
+                </div>
+                <div class="empty-state" id="movies-empty" style="display: none;">
+                    <div class="empty-icon">🎬</div>
+                    <h3>No movies yet</h3>
+                    <p>Create a movie/series to organize your videos</p>
+                    <button class="btn-primary" onclick="showCreateMovieModal()">+ New Movie</button>
                 </div>
             </div>
 
@@ -116,6 +140,46 @@ $user = getCurrentUser();
         <div class="modal-content">
             <span class="modal-close" onclick="closeVideoModal()">&times;</span>
             <div id="modal-body">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Movie Modal -->
+    <div id="movie-create-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="modal-close" onclick="closeMovieCreateModal()">&times;</span>
+            <h2>Create New Movie/Series</h2>
+            <form onsubmit="createMovie(event)" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="movie-title" required placeholder="e.g. Attack on Titan">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="movie-description" rows="3" placeholder="Optional description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="movie-status">
+                        <option value="ongoing">Ongoing</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Total Episodes (optional)</label>
+                    <input type="number" id="movie-total-episodes" placeholder="e.g. 12">
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Create Movie</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Movie Detail Modal -->
+    <div id="movie-detail-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="modal-close" onclick="closeMovieDetailModal()">&times;</span>
+            <div id="movie-detail-body">
                 <!-- Content loaded dynamically -->
             </div>
         </div>

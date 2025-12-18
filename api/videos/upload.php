@@ -119,6 +119,10 @@ function handleSingleUpload()
         errorResponse('Upload error: ' . $file['error']);
     }
 
+    // Get movie_id and episode_number if provided
+    $movieId = isset($_POST['movie_id']) ? intval($_POST['movie_id']) : null;
+    $episodeNumber = isset($_POST['episode_number']) ? intval($_POST['episode_number']) : null;
+
     // Generate video ID
     $videoId = generateUUID();
 
@@ -135,7 +139,7 @@ function handleSingleUpload()
     }
 
     // Create video record and encoding jobs
-    createVideoRecord($videoId, $userId, $originalFilename, $finalPath);
+    createVideoRecord($videoId, $userId, $originalFilename, $finalPath, $movieId, $episodeNumber);
 
     successResponse([
         'video_id' => $videoId
@@ -185,7 +189,7 @@ function mergeChunks($videoId, $originalFilename, $totalChunks)
 /**
  * Create video record in database and encoding job
  */
-function createVideoRecord($videoId, $userId, $originalFilename, $filePath)
+function createVideoRecord($videoId, $userId, $originalFilename, $filePath, $movieId = null, $episodeNumber = null)
 {
     $db = db();
 
@@ -193,11 +197,11 @@ function createVideoRecord($videoId, $userId, $originalFilename, $filePath)
     $fileSize = getFileSize($filePath);
     $duration = getVideoDuration($filePath);
 
-    // Create video record
-    $sql = "INSERT INTO videos (id, user_id, original_filename, original_path, file_size, duration, status) 
-            VALUES (?, ?, ?, ?, ?, ?, 'pending')";
+    // Create video record with optional movie assignment
+    $sql = "INSERT INTO videos (id, user_id, movie_id, episode_number, original_filename, original_path, file_size, duration, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')";
 
-    $db->execute($sql, [$videoId, $userId, $originalFilename, $filePath, $fileSize, $duration]);
+    $db->execute($sql, [$videoId, $userId, $movieId, $episodeNumber, $originalFilename, $filePath, $fileSize, $duration]);
 
     // Create single encoding job for source quality
     $totalFrames = $duration ? intval($duration * 30) : 0; // Estimate 30fps

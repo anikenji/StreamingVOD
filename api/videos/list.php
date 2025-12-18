@@ -58,11 +58,14 @@ $sql = "SELECT v.*, u.username
 $videos = $db->query($sql, $params);
 
 // Format video data
-$formattedVideos = array_map(function($video) {
+$formattedVideos = array_map(function ($video) {
     return [
         'id' => $video['id'],
         'original_filename' => $video['original_filename'],
         'status' => $video['status'],
+        'movie_id' => $video['movie_id'] ?? null,
+        'episode_number' => $video['episode_number'] ?? null,
+        'episode_title' => $video['episode_title'] ?? null,
         'file_size' => intval($video['file_size']),
         'file_size_formatted' => formatBytes($video['file_size']),
         'duration' => floatval($video['duration']),

@@ -47,6 +47,10 @@ function showPage(pageName) {
         document.getElementById('videos-page').classList.add('active');
         document.getElementById('page-title').textContent = 'My Videos';
         loadVideos();
+    } else if (pageName === 'movies') {
+        document.getElementById('movies-page').classList.add('active');
+        document.getElementById('page-title').textContent = 'Movies';
+        loadMovies();
     } else if (pageName === 'upload') {
         document.getElementById('upload-page').classList.add('active');
         document.getElementById('page-title').textContent = 'Upload Video';
@@ -369,4 +373,703 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ================================
+// Movies Management Functions
+// ================================
+
+let currentMovies = [];
+
+/**
+ * Load movies from API
+ */
+async function loadMovies() {
+    const grid = document.getElementById('movies-grid');
+    const loading = document.getElementById('movies-loading');
+    const empty = document.getElementById('movies-empty');
+
+    if (!grid) return;
+
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    grid.innerHTML = '';
+
+    try {
+        const response = await fetch('/api/movies/list.php');
+        const data = await response.json();
+
+        loading.style.display = 'none';
+
+        if (data.success && data.movies.length > 0) {
+            currentMovies = data.movies;
+            grid.innerHTML = data.movies.map(movie => renderMovieCard(movie)).join('');
+        } else {
+            empty.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Failed to load movies:', error);
+        loading.style.display = 'none';
+        grid.innerHTML = '<p style="color: var(--danger);">Failed to load movies</p>';
+    }
+}
+
+/**
+ * Render movie card
+ */
+function renderMovieCard(movie) {
+    const statusClass = movie.status === 'completed' ? 'status-completed' : 'status-processing';
+    return `
+        <div class="video-card" onclick="showMovieDetail(${movie.id})">
+            <div class="video-thumbnail">
+                ${movie.poster_url
+            ? `<img src="${movie.poster_url}" alt="${escapeHtml(movie.title)}">`
+            : `<div class="placeholder">🎬</div>`
+        }
+                <span class="status-badge ${statusClass}">${movie.status}</span>
+            </div>
+            <div class="video-info">
+                <div class="video-title">${escapeHtml(movie.title)}</div>
+                <div class="video-meta">
+                    ${movie.video_count || 0} episodes
+                </div>
+                <div class="video-actions">
+                    <button class="btn-small btn-view" onclick="event.stopPropagation(); showMovieDetail(${movie.id})">View</button>
+                    <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteMovie(${movie.id})">Delete</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Show create movie modal
+ */
+function showCreateMovieModal() {
+    document.getElementById('movie-create-modal').classList.add('active');
+    document.getElementById('movie-title').value = '';
+    document.getElementById('movie-description').value = '';
+    document.getElementById('movie-status').value = 'ongoing';
+    document.getElementById('movie-total-episodes').value = '';
+}
+
+function closeMovieCreateModal() {
+    document.getElementById('movie-create-modal').classList.remove('active');
+}
+
+/**
+ * Create new movie
+ */
+async function createMovie(event) {
+    event.preventDefault();
+
+    const title = document.getElementById('movie-title').value.trim();
+    const description = document.getElementById('movie-description').value.trim();
+    const status = document.getElementById('movie-status').value;
+    const totalEpisodes = document.getElementById('movie-total-episodes').value || 0;
+
+    try {
+        const response = await fetch('/api/movies/create.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, description, status, total_episodes: totalEpisodes })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            closeMovieCreateModal();
+            loadMovies();
+            alert('Movie created successfully!');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to create movie: ' + error.message);
+    }
+}
+
+/**
+ * Show movie detail modal
+ */
+async function showMovieDetail(movieId) {
+    const modal = document.getElementById('movie-detail-modal');
+    const body = document.getElementById('movie-detail-body');
+
+    body.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+    modal.classList.add('active');
+
+    try {
+        const response = await fetch(`/api/movies/detail.php?id=${movieId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderMovieDetail(data.movie);
+        } else {
+            body.innerHTML = `<p style="color: var(--danger);">Error: ${data.error}</p>`;
+        }
+    } catch (error) {
+        body.innerHTML = `<p style="color: var(--danger);">Failed to load movie</p>`;
+    }
+}
+
+function closeMovieDetailModal() {
+    document.getElementById('movie-detail-modal').classList.remove('active');
+}
+
+/**
+ * Render movie detail with improved UI
+ */
+function renderMovieDetail(movie) {
+    const body = document.getElementById('movie-detail-body');
+    const statusClass = movie.status === 'completed' ? 'status-completed' : 'status-processing';
+
+    const episodesHtml = movie.episodes.length > 0
+        ? movie.episodes.map(ep => {
+            const hasSubtitle = ep.subtitle_url ? '🔤' : '';
+            const hasIntro = (ep.intro_start !== null && ep.intro_end !== null) ? '⏭' : '';
+            const hasOutro = (ep.outro_start !== null && ep.outro_end !== null) ? '🔚' : '';
+            const metaIcons = [hasSubtitle, hasIntro, hasOutro].filter(x => x).join(' ');
+
+            return `
+            <div class="episode-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;">
+                <div style="flex: 1;">
+                    <strong style="color: var(--primary);">Tập ${ep.episode_number || '?'}</strong>
+                    <span style="margin-left: 10px;">${escapeHtml(ep.original_filename || ep.episode_title || '')}</span>
+                    <span style="color: var(--text-muted); font-size: 0.85em; margin-left: 8px;">${ep.duration_formatted}</span>
+                    <span class="status-badge status-${ep.status}" style="position: static; margin-left: 8px; font-size: 0.7em;">${ep.status}</span>
+                    ${metaIcons ? `<span style="margin-left: 8px; font-size: 0.8em;" title="Has: ${hasSubtitle ? 'Subtitle ' : ''}${hasIntro ? 'Intro ' : ''}${hasOutro ? 'Outro' : ''}">${metaIcons}</span>` : ''}
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn-small" onclick="showEditEpisodeModal('${ep.id}', ${movie.id}, ${JSON.stringify(ep).replace(/"/g, '&quot;')})" style="background: var(--secondary);" title="Edit Metadata">⚙</button>
+                    <button class="btn-small btn-view" onclick="window.open('${ep.embed_url}', '_blank')">▶</button>
+                    <button class="btn-small" onclick="copyToClipboard('${ep.embed_url}')" style="background: var(--primary);">📋</button>
+                    <button class="btn-small btn-delete" onclick="removeVideoFromMovie('${ep.id}', ${movie.id})">✕</button>
+                </div>
+            </div>
+        `}).join('')
+        : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Chưa có tập nào. Upload hoặc thêm video từ danh sách bên dưới.</p>';
+
+    body.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; padding-right: 40px;">
+            <h2 style="margin: 0;">${escapeHtml(movie.title)}</h2>
+            <span class="status-badge ${statusClass}" style="position: static;">${movie.status}</span>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 24px;">
+            ${movie.episode_count} tập
+            ${movie.description ? ` • ${escapeHtml(movie.description)}` : ''}
+        </p>
+
+        <!-- Episodes List -->
+        <div style="margin-bottom: 24px;">
+            <h3 style="margin-bottom: 12px;">📺 Danh sách tập</h3>
+            <div id="movie-episodes-list" style="max-height: 300px; overflow-y: auto;">
+                ${episodesHtml}
+            </div>
+        </div>
+
+        <!-- Add Episodes Section -->
+        <div style="margin-bottom: 24px; padding: 20px; background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px dashed var(--primary);">
+            <h3 style="margin-bottom: 16px;">➕ Thêm tập mới</h3>
+            
+            <!-- Upload Zone -->
+            <div id="movie-upload-zone" 
+                style="border: 2px dashed var(--border); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; margin-bottom: 16px; transition: all 0.3s;"
+                onclick="triggerMovieUpload(${movie.id})"
+                ondragover="this.style.borderColor='var(--primary)'; event.preventDefault();"
+                ondragleave="this.style.borderColor='var(--border)';"
+                ondrop="handleMovieUploadDrop(event, ${movie.id})">
+                <div style="font-size: 2rem; margin-bottom: 8px;">📁</div>
+                <div>Kéo thả hoặc click để upload video</div>
+                <div style="font-size: 0.85em; color: var(--text-muted);">Tự động detect số tập từ tên file</div>
+            </div>
+            <input type="file" id="movie-file-input" accept="video/*" style="display: none;" multiple onchange="handleMovieFileSelect(event, ${movie.id})">
+
+            <!-- Or Select Existing Videos -->
+            <div style="text-align: center; margin-bottom: 16px; color: var(--text-muted);">── hoặc ──</div>
+            
+            <button class="btn-primary" style="width: 100%;" onclick="showSelectVideosModal(${movie.id})">
+                📹 Chọn từ video có sẵn
+            </button>
+        </div>
+
+        <!-- Export Actions -->
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-primary" onclick="exportMovieLinks(${movie.id}, 'embed')">📋 Export Embed Links</button>
+            <button class="btn-primary" style="background: var(--warning);" onclick="exportMovieLinks(${movie.id}, 'm3u8')">📋 Export M3U8 Links</button>
+        </div>
+    `;
+}
+
+/**
+ * Export movie links
+ */
+async function exportMovieLinks(movieId, type = 'both') {
+    try {
+        const response = await fetch(`/api/movies/export-links.php?id=${movieId}&type=${type}`);
+        const data = await response.json();
+
+        if (data.success) {
+            const formatted = data.formatted;
+            await navigator.clipboard.writeText(formatted);
+            alert(`Copied ${data.episode_count} ${type} links to clipboard!\n\nFormat: episode|link|type`);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to export: ' + error.message);
+    }
+}
+
+/**
+ * Delete movie
+ */
+async function deleteMovie(movieId) {
+    if (!confirm('Are you sure you want to delete this movie? Videos will be kept but unlinked.')) return;
+
+    try {
+        const response = await fetch('/api/movies/delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: movieId })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            loadMovies();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to delete: ' + error.message);
+    }
+}
+
+/**
+ * Remove video from movie
+ */
+async function removeVideoFromMovie(videoId, movieId) {
+    if (!confirm('Remove this episode from the movie?')) return;
+
+    try {
+        const response = await fetch('/api/movies/remove-video.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ video_id: videoId })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showMovieDetail(movieId);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to remove: ' + error.message);
+    }
+}
+
+/**
+ * Show add video to movie modal - now replaced by showSelectVideosModal
+ */
+async function showAddVideoToMovieModal(movieId) {
+    showSelectVideosModal(movieId);
+}
+
+/**
+ * Parse episode number from filename
+ * Patterns: "Ep 01", "Episode 1", " - 01", "[01]", "_01_", ".01."
+ */
+function parseEpisodeNumber(filename) {
+    const patterns = [
+        /(?:ep|episode|tập|tap|e)\s*\.?\s*(\d+)/i,  // Ep 01, Episode 1, E01
+        /\s+-\s*(\d+)/,                              // - 01
+        /\[(\d+)\]/,                                 // [01]
+        /[_\s](\d{1,3})[_\s\.]/,                     // _01_, .01.
+        /(\d{1,3})\s*(?:end|final)?\.?\s*$/i        // 01.mp4, 12 END.mkv
+    ];
+
+    for (const pattern of patterns) {
+        const match = filename.match(pattern);
+        if (match) {
+            return parseInt(match[1], 10);
+        }
+    }
+    return null;
+}
+
+/**
+ * Trigger movie upload file input
+ */
+function triggerMovieUpload(movieId) {
+    const input = document.getElementById('movie-file-input');
+    input.setAttribute('data-movie-id', movieId);
+    input.click();
+}
+
+/**
+ * Handle movie upload drop
+ */
+function handleMovieUploadDrop(event, movieId) {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        uploadFilesToMovie(files, movieId);
+    }
+}
+
+/**
+ * Handle movie file select
+ */
+function handleMovieFileSelect(event, movieId) {
+    const files = event.target.files;
+    if (files.length > 0) {
+        uploadFilesToMovie(files, movieId);
+    }
+}
+
+/**
+ * Upload files to movie with auto episode detection
+ */
+async function uploadFilesToMovie(files, movieId) {
+    for (const file of files) {
+        const episodeNumber = parseEpisodeNumber(file.name);
+
+        // Show progress
+        const episodesListEl = document.getElementById('movie-episodes-list');
+        if (episodesListEl) {
+            const progressHtml = `
+                <div id="upload-${Date.now()}" style="padding: 12px; background: rgba(99, 102, 241, 0.2); border-radius: 8px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span>📤 Uploading: ${escapeHtml(file.name)}</span>
+                        <span>Tập ${episodeNumber || 'Auto'}</span>
+                    </div>
+                    <div class="progress-bar" style="height: 6px;">
+                        <div class="progress-fill" style="width: 0%;" id="upload-progress-${Date.now()}"></div>
+                    </div>
+                </div>
+            `;
+            episodesListEl.insertAdjacentHTML('beforeend', progressHtml);
+        }
+
+        // Upload file
+        const formData = new FormData();
+        formData.append('video', file);
+        formData.append('movie_id', movieId);
+        if (episodeNumber) formData.append('episode_number', episodeNumber);
+
+        try {
+            const response = await fetch('/api/videos/upload.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                console.log('Uploaded:', file.name, 'Episode:', episodeNumber);
+            } else {
+                alert('Upload error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Upload failed: ' + error.message);
+        }
+    }
+
+    // Refresh movie detail after all uploads
+    setTimeout(() => showMovieDetail(movieId), 1000);
+}
+
+/**
+ * Show select videos modal - allows picking existing videos to add to movie
+ */
+let selectVideosMovieId = null;
+
+async function showSelectVideosModal(movieId) {
+    selectVideosMovieId = movieId;
+
+    // Create modal if not exists
+    let modal = document.getElementById('select-videos-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'select-videos-modal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 700px;">
+                <span class="modal-close" onclick="closeSelectVideosModal()">&times;</span>
+                <h2>📹 Chọn video để thêm vào Movie</h2>
+                <p style="color: var(--text-muted); margin-bottom: 20px;">Chỉ hiển thị video chưa thuộc movie nào</p>
+                <div id="select-videos-list" style="max-height: 400px; overflow-y: auto;">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.classList.add('active');
+
+    // Load videos not in any movie
+    try {
+        const response = await fetch('/api/videos/list.php');
+        const data = await response.json();
+
+        if (data.success) {
+            const unassignedVideos = data.videos.filter(v => !v.movie_id && v.status === 'completed');
+
+            const listEl = document.getElementById('select-videos-list');
+            if (unassignedVideos.length === 0) {
+                listEl.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Không có video nào chưa được gán vào movie</p>';
+            } else {
+                listEl.innerHTML = unassignedVideos.map(video => {
+                    const autoEp = parseEpisodeNumber(video.original_filename);
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600;">${escapeHtml(video.original_filename)}</div>
+                                <div style="font-size: 0.85em; color: var(--text-muted);">
+                                    ${video.duration_formatted || ''} • ${video.file_size_formatted || ''}
+                                    ${autoEp ? ` • <span style="color: var(--success);">Auto: Tập ${autoEp}</span>` : ''}
+                                </div>
+                            </div>
+                            <button class="btn-small btn-view" onclick="addVideoToMovieFromList('${video.id}', ${autoEp || 0})">
+                                + Thêm ${autoEp ? 'Tập ' + autoEp : ''}
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+    } catch (error) {
+        document.getElementById('select-videos-list').innerHTML = '<p style="color: var(--danger);">Error loading videos</p>';
+    }
+}
+
+function closeSelectVideosModal() {
+    const modal = document.getElementById('select-videos-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Add video to movie from the selection list
+ */
+async function addVideoToMovieFromList(videoId, episodeNumber) {
+    if (!selectVideosMovieId) return;
+
+    try {
+        const response = await fetch('/api/movies/add-video.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                movie_id: selectVideosMovieId,
+                video_id: videoId,
+                episode_number: episodeNumber
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            closeSelectVideosModal();
+            showMovieDetail(selectVideosMovieId);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to add: ' + error.message);
+    }
+}
+
+/**
+ * Copy to clipboard helper
+ */
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        // Show toast instead of alert
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 24px; border-radius: 8px; z-index: 9999;';
+        toast.textContent = 'Copied!';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    } catch (error) {
+        prompt('Copy this:', text);
+    }
+}
+
+// ================================
+// Episode Metadata Edit Functions
+// ================================
+
+let editingEpisodeId = null;
+let editingMovieId = null;
+
+/**
+ * Show edit episode metadata modal
+ */
+function showEditEpisodeModal(videoId, movieId, episodeData) {
+    editingEpisodeId = videoId;
+    editingMovieId = movieId;
+
+    // Parse episode data if it's a string
+    if (typeof episodeData === 'string') {
+        try {
+            episodeData = JSON.parse(episodeData.replace(/&quot;/g, '"'));
+        } catch (e) {
+            episodeData = {};
+        }
+    }
+
+    // Create modal if not exists
+    let modal = document.getElementById('edit-episode-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'edit-episode-modal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 550px;">
+                <span class="modal-close" onclick="closeEditEpisodeModal()">&times;</span>
+                <h2>⚙ Chỉnh sửa Metadata</h2>
+                <form onsubmit="saveEpisodeMetadata(event)" style="margin-top: 20px;">
+                    <div id="edit-episode-form-content"></div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">💾 Lưu thay đổi</button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Fill form
+    document.getElementById('edit-episode-form-content').innerHTML = `
+        <div style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 20px;">
+            Video: ${escapeHtml(episodeData.original_filename || '')}
+        </div>
+        
+        <div class="form-group">
+            <label>Số tập</label>
+            <input type="number" id="edit-episode-number" value="${episodeData.episode_number || ''}" placeholder="Ví dụ: 1">
+        </div>
+        
+        <div class="form-group">
+            <label>Tên tập (tùy chọn)</label>
+            <input type="text" id="edit-episode-title" value="${escapeHtml(episodeData.episode_title || '')}" placeholder="Ví dụ: Khởi đầu mới">
+        </div>
+        
+        <div class="form-group">
+            <label>🔤 URL Phụ đề (.vtt hoặc .srt)</label>
+            <input type="url" id="edit-subtitle-url" value="${episodeData.subtitle_url || ''}" placeholder="https://example.com/sub.vtt">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+                <label>⏭ Intro bắt đầu</label>
+                <input type="text" id="edit-intro-start" value="${secondsToTimeStr(episodeData.intro_start)}" placeholder="0:00 hoặc 0">
+            </div>
+            <div class="form-group">
+                <label>⏭ Intro kết thúc</label>
+                <input type="text" id="edit-intro-end" value="${secondsToTimeStr(episodeData.intro_end)}" placeholder="1:30 hoặc 90">
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+                <label>🔚 Outro bắt đầu</label>
+                <input type="text" id="edit-outro-start" value="${secondsToTimeStr(episodeData.outro_start)}" placeholder="21:00">
+            </div>
+            <div class="form-group">
+                <label>🔚 Outro kết thúc</label>
+                <input type="text" id="edit-outro-end" value="${secondsToTimeStr(episodeData.outro_end)}" placeholder="23:30">
+            </div>
+        </div>
+        
+        <div style="font-size: 0.85em; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+            💡 <strong>Hỗ trợ format:</strong> mm:ss (ví dụ: 1:30 = 90 giây) hoặc nhập trực tiếp số giây.
+            <br>Intro thường từ 0:00 - 1:30. Outro thường bắt đầu vài phút cuối.
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+function closeEditEpisodeModal() {
+    const modal = document.getElementById('edit-episode-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Convert seconds to time string (mm:ss)
+ */
+function secondsToTimeStr(seconds) {
+    if (seconds === null || seconds === undefined || seconds === '') return '';
+    const s = parseFloat(seconds);
+    if (isNaN(s)) return '';
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Convert time string (mm:ss or just seconds) to seconds
+ */
+function timeStrToSeconds(str) {
+    if (!str || str.trim() === '') return null;
+    str = str.trim();
+
+    // If contains colon, parse as mm:ss
+    if (str.includes(':')) {
+        const parts = str.split(':');
+        const mins = parseInt(parts[0], 10) || 0;
+        const secs = parseInt(parts[1], 10) || 0;
+        return mins * 60 + secs;
+    }
+
+    // Otherwise treat as seconds
+    const num = parseFloat(str);
+    return isNaN(num) ? null : num;
+}
+
+/**
+ * Save episode metadata
+ */
+async function saveEpisodeMetadata(event) {
+    event.preventDefault();
+
+    if (!editingEpisodeId) return;
+
+    const data = {
+        video_id: editingEpisodeId,
+        episode_number: document.getElementById('edit-episode-number').value || null,
+        episode_title: document.getElementById('edit-episode-title').value || null,
+        subtitle_url: document.getElementById('edit-subtitle-url').value || null,
+        intro_start: timeStrToSeconds(document.getElementById('edit-intro-start').value),
+        intro_end: timeStrToSeconds(document.getElementById('edit-intro-end').value),
+        outro_start: timeStrToSeconds(document.getElementById('edit-outro-start').value),
+        outro_end: timeStrToSeconds(document.getElementById('edit-outro-end').value)
+    };
+
+    console.log('Saving metadata:', data);
+
+    try {
+        const response = await fetch('/api/videos/update-metadata.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            closeEditEpisodeModal();
+            // Refresh movie detail
+            if (editingMovieId) {
+                showMovieDetail(editingMovieId);
+            }
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 24px; border-radius: 8px; z-index: 9999;';
+            toast.textContent = 'Đã lưu metadata!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Failed to save: ' + error.message);
+    }
 }
