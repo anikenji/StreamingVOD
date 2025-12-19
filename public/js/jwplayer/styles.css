@@ -26,11 +26,13 @@ changelog:
 */
 
 @import url("https://fonts.googleapis.com/css2?family=Rubik:wght@500;700&display=swap");
+
 :root {
   --bg-red: #e50914;
   --bg-white: #f7f7f7;
   --bg-black: #181919;
 }
+
 /* RESET CSS */
 *,
 *::before,
@@ -91,11 +93,9 @@ html {
   width: 100%;
   height: 100%;
   position: absolute;
-  background: linear-gradient(
-    0deg,
-    var(--bg-black),
-    rgba(24, 25, 25, 0.3) 150%
-  );
+  background: linear-gradient(0deg,
+      var(--bg-black),
+      rgba(24, 25, 25, 0.3) 150%);
   border-radius: 0.3rem 0.3rem 0 0;
 }
 
@@ -106,11 +106,9 @@ html {
   width: 100%;
   height: 100%;
   position: absolute;
-  background: linear-gradient(
-    0deg,
-    var(--bg-black),
-    rgba(24, 25, 25, 0.3) 100%
-  );
+  background: linear-gradient(0deg,
+      var(--bg-black),
+      rgba(24, 25, 25, 0.3) 100%);
   border-radius: 0.3rem 0.3rem 0 0;
 }
 
@@ -289,16 +287,11 @@ html {
   font-size: 2rem;
 }
 
-.jwplayer.jw-skin-netflix.jw-state-idle
-  .jw-display-icon-container
-  .jw-svg-icon-play
-  path {
+.jwplayer.jw-skin-netflix.jw-state-idle .jw-display-icon-container .jw-svg-icon-play path {
   display: none;
 }
 
-.jwplayer.jw-skin-netflix.jw-state-idle
-  .jw-display-icon-container
-  .jw-svg-icon-play {
+.jwplayer.jw-skin-netflix.jw-state-idle .jw-display-icon-container .jw-svg-icon-play {
   background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij48cGF0aCBmaWxsPSJub25lIiBkPSJNMCAwaDI0djI0SDB6Ii8+PHBhdGggZD0iTTE5LjM3NiAxMi40MTZMOC43NzcgMTkuNDgyQS41LjUgMCAwIDEgOCAxOS4wNjZWNC45MzRhLjUuNSAwIDAgMSAuNzc3LS40MTZsMTAuNTk5IDcuMDY2YS41LjUgMCAwIDEgMCAuODMyeiIgZmlsbD0icmdiYSgyNDcsMjQ2LDI0NywxKSIvPjwvc3ZnPg==");
   background-repeat: no-repeat;
   background-position: center;
@@ -306,9 +299,7 @@ html {
   transition: 0.2s;
 }
 
-.jwplayer.jw-skin-netflix.jw-state-idle
-  .jw-display-icon-container:hover
-  .jw-svg-icon-play {
+.jwplayer.jw-skin-netflix.jw-state-idle .jw-display-icon-container:hover .jw-svg-icon-play {
   background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij48cGF0aCBmaWxsPSJub25lIiBkPSJNMCAwaDI0djI0SDB6Ii8+PHBhdGggZD0iTTE5LjM3NiAxMi40MTZMOC43NzcgMTkuNDgyQS41LjUgMCAwIDEgOCAxOS4wNjZWNC45MzRhLjUuNSAwIDAgMSAuNzc3LS40MTZsMTAuNTk5IDcuMDY2YS41LjUgMCAwIDEgMCAuODMyeiIgZmlsbD0icmdiYSgyMjksOSwyMCwxKSIvPjwvc3ZnPg==");
   background-repeat: no-repeat;
   background-position: center;
@@ -316,17 +307,12 @@ html {
   transition: 0.2s;
 }
 
-.jwplayer.jw-skin-netflix.jw-state-idle
-  .jw-display-icon-container
-  .jw-svg-icon-play {
+.jwplayer.jw-skin-netflix.jw-state-idle .jw-display-icon-container .jw-svg-icon-play {
   background-color: rgba(255, 255, 255, 0.25);
   border-radius: 100%;
 }
 
-.jwplayer.jw-skin-netflix.jw-state-idle
-  .jw-display-controls
-  .jw-display-icon-container
-  .jw-icon {
+.jwplayer.jw-skin-netflix.jw-state-idle .jw-display-controls .jw-display-icon-container .jw-icon {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -375,10 +361,7 @@ html {
   -webkit-transition: all 0.2s linear;
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-display-controls
-  .jw-display-icon-container
-  .jw-icon:hover {
+.jwplayer.jw-skin-netflix .jw-display-controls .jw-display-icon-container .jw-icon:hover {
   color: var(--bg-red);
 }
 
@@ -418,17 +401,11 @@ Mudar a cor da barra de controle e alterar a cor do ícone em idle.
   color: var(--bg-white);
 }
 
-.jwplayer.jw-skin-netflix.jw-state-paused
-  .jw-controlbar
-  .jw-button-container
-  .jw-button-color {
+.jwplayer.jw-skin-netflix.jw-state-paused .jw-controlbar .jw-button-container .jw-button-color {
   color: var(--bg-white);
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-controlbar
-  .jw-button-container
-  .jw-button-color:hover {
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-button-container .jw-button-color:hover {
   color: var(--bg-red);
 }
 
@@ -471,23 +448,13 @@ Tooltip timeslider e botões de qualidade e legenda.
   color: var(--bg-black);
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-settings-topbar-buttons
-  .jw-tooltip-captions
-  .jw-text,
-.jwplayer.jw-skin-netflix
-  .jw-settings-topbar-buttons
-  .jw-tooltip-quality
-  .jw-text,
-.jwplayer.jw-skin-netflix
-  .jw-settings-topbar-buttons
-  .jw-tooltip-audioTracks
-  .jw-text,
-.jwplayer.jw-skin-netflix
-  .jw-settings-topbar-buttons
-  .jw-tooltip-sharing
-  .jw-text
-/* .jwplayer.jw-skin-netflix .jw-time-tip .jw-reset */ {
+.jwplayer.jw-skin-netflix .jw-settings-topbar-buttons .jw-tooltip-captions .jw-text,
+.jwplayer.jw-skin-netflix .jw-settings-topbar-buttons .jw-tooltip-quality .jw-text,
+.jwplayer.jw-skin-netflix .jw-settings-topbar-buttons .jw-tooltip-audioTracks .jw-text,
+.jwplayer.jw-skin-netflix .jw-settings-topbar-buttons .jw-tooltip-sharing .jw-text
+
+/* .jwplayer.jw-skin-netflix .jw-time-tip .jw-reset */
+  {
   border-radius: 0.3rem;
   background-color: var(--bg-black);
   color: var(--bg-white);
@@ -514,10 +481,7 @@ Tooltip copia
   color: var(--bg-black);
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-settings-submenu-items
-  .jw-tooltip-sharing-Link
-  .jw-text {
+.jwplayer.jw-skin-netflix .jw-settings-submenu-items .jw-tooltip-sharing-Link .jw-text {
   color: var(--bg-white);
   background-color: var(--bg-black);
 }
@@ -525,33 +489,17 @@ Tooltip copia
 /*
 Controle de volume.
 */
-.jwplayer.jw-skin-netflix
-  .jw-overlay
-  .jw-slider-volume
-  .jw-slider-container
-  .jw-knob {
+.jwplayer.jw-skin-netflix .jw-overlay .jw-slider-volume .jw-slider-container .jw-knob {
   background-color: var(--bg-red);
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-overlay
-  .jw-slider-volume
-  .jw-slider-container
-  .jw-buffer,
-.jwplayer.jw-skin-netflix
-  .jw-overlay
-  .jw-slider-volume
-  .jw-slider-container
-  .jw-rail {
+.jwplayer.jw-skin-netflix .jw-overlay .jw-slider-volume .jw-slider-container .jw-buffer,
+.jwplayer.jw-skin-netflix .jw-overlay .jw-slider-volume .jw-slider-container .jw-rail {
   background-color: var(--bg-black);
   width: 0.2rem;
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-overlay
-  .jw-slider-volume
-  .jw-slider-container
-  .jw-progress {
+.jwplayer.jw-skin-netflix .jw-overlay .jw-slider-volume .jw-slider-container .jw-progress {
   background-color: var(--bg-red);
   width: 0.2rem;
 }
@@ -559,31 +507,16 @@ Controle de volume.
 /*
 Tamanho e cor da slider.
 */
-.jwplayer.jw-skin-netflix
-  .jw-controlbar
-  .jw-slider-time
-  .jw-slider-container
-  .jw-rail {
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time .jw-slider-container .jw-rail {
   background-color: var(--bg-black);
 }
-.jwplayer.jw-skin-netflix
-  .jw-controlbar
-  .jw-slider-time
-  .jw-slider-container
-  .jw-buffer {
+
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time .jw-slider-container .jw-buffer {
   background-color: #222323;
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-controlbar
-  .jw-slider-time
-  .jw-slider-container
-  .jw-knob,
-.jwplayer.jw-skin-netflix
-  .jw-controlbar
-  .jw-slider-time
-  .jw-slider-container
-  .jw-progress {
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time .jw-slider-container .jw-knob,
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time .jw-slider-container .jw-progress {
   background-color: var(--bg-red);
 }
 
@@ -606,10 +539,7 @@ Cor do menu de configurações.
   border-radius: 0.3rem 0.3rem 0 0;
 }
 
-.jwplayer.jw-skin-netflix
-  .jw-settings-menu
-  .jw-settings-topbar:not(.jw-nested-menu-open)
-  .jw-icon-inline {
+.jwplayer.jw-skin-netflix .jw-settings-menu .jw-settings-topbar:not(.jw-nested-menu-open) .jw-icon-inline {
   height: 5rem;
 }
 
@@ -663,6 +593,7 @@ Animações do botão.
   from {
     transform: scale(1);
   }
+
   to {
     transform: scale(1.1);
   }
@@ -921,10 +852,7 @@ Icone de Share.
   background-repeat: no-repeat;
 }
 
-.jwplayer.jw-skin-netflix
-  .jwplayer.jw-skin-netflix
-  .jw-submenu-audioTracks:hover
-  .jw-svg-icon-audio-tracks {
+.jwplayer.jw-skin-netflix .jwplayer.jw-skin-netflix .jw-submenu-audioTracks:hover .jw-svg-icon-audio-tracks {
   background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij48cGF0aCBmaWxsPSJub25lIiBkPSJNMCAwaDI0djI0SDB6Ii8+PHBhdGggZD0iTTIgMThoMTB2Mkgydi0yem0wLTdoMTR2Mkgydi0yem0wLTdoMjB2MkgyVjR6bTE3IDExLjE3VjloNXYyaC0zdjdhMyAzIDAgMSAxLTItMi44M3pNMTggMTlhMSAxIDAgMSAwIDAtMiAxIDEgMCAwIDAgMCAyeiIgZmlsbD0icmdiYSgyMjksOSwyMCwxKSIvPjwvc3ZnPg==");
 }
 
@@ -957,6 +885,86 @@ Icone de Share.
 
 .jwplayer.jw-skin-netflix .jw-icon-pip:hover .jw-svg-icon-pip-off {
   background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij48cGF0aCBmaWxsPSJub25lIiBkPSJNMCAwaDI0djI0SDB6Ii8+PHBhdGggZD0iTTIxIDNhMSAxIDAgMCAxIDEgMXY3aC0yVjVINHYxNGg2djJIM2ExIDEgMCAwIDEtMS0xVjRhMSAxIDAgMCAxIDEtMWgxOHptMCAxMGExIDEgMCAwIDEgMSAxdjZhMSAxIDAgMCAxLTEgMWgtOGExIDEgMCAwIDEtMS0xdi02YTEgMSAwIDAgMSAxLTFoOHptLTEgMmgtNnY0aDZ2LTR6bS04LjUtOEw5LjQ1NyA5LjA0M2wyLjI1IDIuMjUtMS40MTQgMS40MTQtMi4yNS0yLjI1TDYgMTIuNVY3aDUuNXoiIGZpbGw9InJnYmEoMjI5LDksMjAsMSkiLz48L3N2Zz4=");
+}
+
+/* ===== Timeline Above Controls (Mobile-Friendly Layout) ===== */
+/* Restructure controlbar to have timeline on top */
+.jwplayer.jw-skin-netflix .jw-controlbar {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  padding: 0 !important;
+}
+
+/* Make the slider-time container full width and on top with minimal padding */
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time {
+  order: -1;
+  width: 100% !important;
+  flex: none;
+  margin: 0;
+  padding: 0 0 4px 0;
+  height: auto;
+}
+
+/* Adjust the control buttons row - compact layout */
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-button-container {
+  width: 100%;
+  order: 1;
+  padding: 0 4px;
+  margin: 0;
+  height: 36px;
+  min-height: 36px;
+}
+
+/* Reduce icon size and spacing */
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-button-container .jw-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+}
+
+/* Align text elements properly */
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-text-elapsed,
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-text-duration {
+  font-size: 12px;
+  padding: 0 4px;
+  line-height: 36px;
+}
+
+/* Make slider rail thinner for cleaner look */
+.jwplayer.jw-skin-netflix .jw-slider-horizontal .jw-rail,
+.jwplayer.jw-skin-netflix .jw-slider-horizontal .jw-buffer,
+.jwplayer.jw-skin-netflix .jw-slider-horizontal .jw-progress {
+  height: 3px;
+}
+
+/* Increase touch target on hover/focus */
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time:hover .jw-rail,
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time:hover .jw-buffer,
+.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time:hover .jw-progress {
+  height: 5px;
+}
+
+/* Mobile breakpoints - even more compact */
+.jwplayer.jw-skin-netflix.jw-breakpoint-0 .jw-controlbar .jw-slider-time,
+.jwplayer.jw-skin-netflix.jw-breakpoint-1 .jw-controlbar .jw-slider-time,
+.jwplayer.jw-skin-netflix.jw-breakpoint-2 .jw-controlbar .jw-slider-time {
+  padding: 0 0 2px 0;
+}
+
+/* Compact buttons on mobile */
+.jwplayer.jw-skin-netflix.jw-breakpoint-0 .jw-button-container,
+.jwplayer.jw-skin-netflix.jw-breakpoint-1 .jw-button-container {
+  padding: 0 2px;
+  height: 32px;
+  min-height: 32px;
+}
+
+.jwplayer.jw-skin-netflix.jw-breakpoint-0 .jw-button-container .jw-icon,
+.jwplayer.jw-skin-netflix.jw-breakpoint-1 .jw-button-container .jw-icon {
+  width: 28px;
+  height: 28px;
 }
 
 /* Buffer Netflix */

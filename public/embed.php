@@ -400,11 +400,8 @@ $outroEnd = $video['outro_end'] ?? null;
             try {
                 const playerContainer = playerInstance.getContainer();
                 const buttonContainer = playerContainer.querySelector(".jw-button-container");
-                const spacer = buttonContainer.querySelector(".jw-spacer");
-                const timeSlider = playerContainer.querySelector(".jw-slider-time");
-                if (spacer && timeSlider) {
-                    buttonContainer.replaceChild(timeSlider, spacer);
-                }
+                // Timeline is now positioned above controls via CSS (mobile-friendly layout)
+                // The timeline slider stays in its original position and CSS handles the layout
 
                 // Add Forward 10s button (clone from rewind button)
                 const rewindContainer = playerContainer.querySelector(".jw-display-icon-rewind");
@@ -545,7 +542,6 @@ $outroEnd = $video['outro_end'] ?? null;
                 toggleStats();
             }
         });
-
         // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
         document.addEventListener('keydown', function (e) {
             // F12
@@ -569,7 +565,6 @@ $outroEnd = $video['outro_end'] ?? null;
                 e.preventDefault();
             }
         });
-
         // Update stats every second when visible
         setInterval(updateStats, 1000);
 
