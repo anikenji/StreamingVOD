@@ -893,78 +893,19 @@ Icone de Share.
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
-  padding: 0 !important;
 }
 
-/* Make the slider-time container full width and on top with minimal padding */
+/* Make the slider-time container full width and on top */
 .jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time {
   order: -1;
   width: 100% !important;
   flex: none;
-  margin: 0;
-  padding: 0 0 4px 0;
-  height: auto;
 }
 
-/* Adjust the control buttons row - compact layout */
+/* Adjust the control buttons row */
 .jwplayer.jw-skin-netflix .jw-controlbar .jw-button-container {
   width: 100%;
   order: 1;
-  padding: 0 4px;
-  margin: 0;
-  height: 36px;
-  min-height: 36px;
-}
-
-/* Reduce icon size and spacing */
-.jwplayer.jw-skin-netflix .jw-controlbar .jw-button-container .jw-icon {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  margin: 0;
-}
-
-/* Align text elements properly */
-.jwplayer.jw-skin-netflix .jw-controlbar .jw-text-elapsed,
-.jwplayer.jw-skin-netflix .jw-controlbar .jw-text-duration {
-  font-size: 12px;
-  padding: 0 4px;
-  line-height: 36px;
-}
-
-/* Make slider rail thinner for cleaner look */
-.jwplayer.jw-skin-netflix .jw-slider-horizontal .jw-rail,
-.jwplayer.jw-skin-netflix .jw-slider-horizontal .jw-buffer,
-.jwplayer.jw-skin-netflix .jw-slider-horizontal .jw-progress {
-  height: 3px;
-}
-
-/* Increase touch target on hover/focus */
-.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time:hover .jw-rail,
-.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time:hover .jw-buffer,
-.jwplayer.jw-skin-netflix .jw-controlbar .jw-slider-time:hover .jw-progress {
-  height: 5px;
-}
-
-/* Mobile breakpoints - even more compact */
-.jwplayer.jw-skin-netflix.jw-breakpoint-0 .jw-controlbar .jw-slider-time,
-.jwplayer.jw-skin-netflix.jw-breakpoint-1 .jw-controlbar .jw-slider-time,
-.jwplayer.jw-skin-netflix.jw-breakpoint-2 .jw-controlbar .jw-slider-time {
-  padding: 0 0 2px 0;
-}
-
-/* Compact buttons on mobile */
-.jwplayer.jw-skin-netflix.jw-breakpoint-0 .jw-button-container,
-.jwplayer.jw-skin-netflix.jw-breakpoint-1 .jw-button-container {
-  padding: 0 2px;
-  height: 32px;
-  min-height: 32px;
-}
-
-.jwplayer.jw-skin-netflix.jw-breakpoint-0 .jw-button-container .jw-icon,
-.jwplayer.jw-skin-netflix.jw-breakpoint-1 .jw-button-container .jw-icon {
-  width: 28px;
-  height: 28px;
 }
 
 /* Buffer Netflix */

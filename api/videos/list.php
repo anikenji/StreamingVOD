@@ -19,8 +19,9 @@ $isAdminUser = isAdmin();
 
 // Get query parameters
 $status = $_GET['status'] ?? '';
+$search = trim($_GET['search'] ?? '');
 $page = max(1, intval($_GET['page'] ?? 1));
-$limit = min(100, max(1, intval($_GET['limit'] ?? 20)));
+$limit = min(100, max(1, intval($_GET['limit'] ?? 50))); // Increased default to 50
 $offset = ($page - 1) * $limit;
 
 $db = db();
@@ -38,6 +39,12 @@ if (!$isAdminUser) {
 if ($status && in_array($status, ['pending', 'processing', 'completed', 'failed'])) {
     $where[] = "v.status = ?";
     $params[] = $status;
+}
+
+// Search by filename
+if ($search !== '') {
+    $where[] = "v.original_filename LIKE ?";
+    $params[] = '%' . $search . '%';
 }
 
 $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';

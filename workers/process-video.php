@@ -30,47 +30,49 @@ while (true) {
                 WHERE ej.status = 'pending'
                 ORDER BY ej.created_at ASC
                 LIMIT ?";
-        
+
         $availableSlots = MAX_CONCURRENT_ENCODES - count($currentlyProcessing);
-        
+
         if ($availableSlots > 0) {
             $pendingJobs = $db->query($sql, [$availableSlots]);
-            
-            foreach ($pendingJobs as $job) {
-                processJob($job, $db);
-            }
+
+            if (is_array($pendingJobs))
+                foreach ($pendingJobs as $job) {
+                    processJob($job, $db);
+                }
         }
-        
+
         // Check for completed videos
         checkVideoCompletion($db);
-        
+
         // Clean up old temp files
         cleanupTempFiles();
-        
+
     } catch (Exception $e) {
         logMessage("Worker error: " . $e->getMessage(), 'ERROR');
     }
-    
+
     sleep(WORKER_INTERVAL);
 }
 
 /**
  * Process a single encoding job
  */
-function processJob($job, $db) {
+function processJob($job, $db)
+{
     $videoId = $job['video_id'];
     $inputPath = $job['original_path'];
-    
+
     echo "[" . date('Y-m-d H:i:s') . "] Processing video $videoId (source resolution)\n";
-    
+
     // Update video status to processing if not already
     $db->execute("UPDATE videos SET status = 'processing', started_at = NOW() 
                   WHERE id = ? AND status = 'pending'", [$videoId]);
-    
+
     // Create encoder and process
     $encoder = new FFmpegEncoder($videoId, $inputPath);
     $success = $encoder->encodeToHLS($db);
-    
+
     if ($success) {
         echo "[" . date('Y-m-d H:i:s') . "] Completed: $videoId\n";
     } else {
@@ -81,53 +83,56 @@ function processJob($job, $db) {
 /**
  * Check if encoding job for a video is completed
  */
-function checkVideoCompletion($db) {
+function checkVideoCompletion($db)
+{
     // Get videos that are still processing
     $sql = "SELECT v.id, ej.status
             FROM videos v
             JOIN encoding_jobs ej ON v.id = ej.video_id
             WHERE v.status = 'processing'";
-    
+
     $videos = $db->query($sql, []);
-    
-    foreach ($videos as $video) {
-        $videoId = $video['id'];
-        $jobStatus = $video['status'];
-        
-        // Check if job completed
-        if ($jobStatus === 'completed') {
-            // Get playlist path
-            $playlistPath = FFmpegEncoder::getPlaylistPath($videoId);
-            
-            // Generate embed code/URL
-            $embedUrl = BASE_URL . '/embed/' . $videoId;
-            $embedCode = generateEmbedCode($videoId);
-            
-            // Update video status
-            $db->execute("UPDATE videos SET 
+
+    if (is_array($videos))
+        foreach ($videos as $video) {
+            $videoId = $video['id'];
+            $jobStatus = $video['status'];
+
+            // Check if job completed
+            if ($jobStatus === 'completed') {
+                // Get playlist path
+                $playlistPath = FFmpegEncoder::getPlaylistPath($videoId);
+
+                // Generate embed code/URL
+                $embedUrl = BASE_URL . '/embed/' . $videoId;
+                $embedCode = generateEmbedCode($videoId);
+
+                // Update video status
+                $db->execute("UPDATE videos SET 
                           status = 'completed',
                           master_playlist_path = ?,
                           embed_url = ?,
                           embed_code = ?,
                           completed_at = NOW()
                           WHERE id = ?", [$playlistPath, $embedUrl, $embedCode, $videoId]);
-            
-            echo "[" . date('Y-m-d H:i:s') . "] Video completed: $videoId\n";
-            logMessage("Video encoding completed: $videoId", 'INFO');
+
+                echo "[" . date('Y-m-d H:i:s') . "] Video completed: $videoId\n";
+                logMessage("Video encoding completed: $videoId", 'INFO');
+            }
+            // Check if job failed
+            else if ($jobStatus === 'failed') {
+                $db->execute("UPDATE videos SET status = 'failed' WHERE id = ?", [$videoId]);
+                echo "[" . date('Y-m-d H:i:s') . "] Video failed: $videoId\n";
+                logMessage("Video encoding failed: $videoId", 'ERROR');
+            }
         }
-        // Check if job failed
-        else if ($jobStatus === 'failed') {
-            $db->execute("UPDATE videos SET status = 'failed' WHERE id = ?", [$videoId]);
-            echo "[" . date('Y-m-d H:i:s') . "] Video failed: $videoId\n";
-            logMessage("Video encoding failed: $videoId", 'ERROR');
-        }
-    }
 }
 
 /**
  * Generate embed code for JWPlayer
  */
-function generateEmbedCode($videoId) {
+function generateEmbedCode($videoId)
+{
     $embedUrl = BASE_URL . '/embed/' . $videoId;
     return sprintf(
         '<iframe src="%s" width="640" height="360" frameborder="0" allowfullscreen allow="autoplay"></iframe>',
@@ -138,16 +143,17 @@ function generateEmbedCode($videoId) {
 /**
  * Clean up old temp files (> 24 hours)
  */
-function cleanupTempFiles() {
+function cleanupTempFiles()
+{
     $tempDir = TEMP_DIR;
-    
+
     if (!is_dir($tempDir)) {
         return;
     }
-    
+
     $files = glob($tempDir . '/*');
     $now = time();
-    
+
     foreach ($files as $file) {
         if (is_dir($file) && ($now - filemtime($file)) > 86400) {
             deleteDirectory($file);

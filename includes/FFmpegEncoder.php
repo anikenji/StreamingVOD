@@ -68,6 +68,7 @@ class FFmpegEncoder
 
     /**
      * Build FFmpeg command for HLS encoding (source resolution)
+     * Includes hardsub support for ASS/SSA subtitles
      */
     private function buildFFmpegCommand($profile, $outputDir)
     {
@@ -79,10 +80,24 @@ class FFmpegEncoder
         $inputPath = str_replace('/', '\\', $this->inputPath);
         $outputDirWin = str_replace('/', '\\', $outputDir);
 
-        // Build command without 2>&1 (using separate pipe for stderr)
+        // Check for subtitle streams
+        $hasSubtitle = $this->detectSubtitleStream();
+        $subtitleFilter = '';
+
+        if ($hasSubtitle) {
+            // For embedded subtitles (MKV with ASS/SSA), use subtitles filter
+            // Need to escape path for FFmpeg filter (use forward slashes and escape colons/backslashes)
+            $escapedInputPath = str_replace('\\', '/', $this->inputPath);
+            $escapedInputPath = str_replace(':', '\\:', $escapedInputPath);
+            $subtitleFilter = sprintf('-vf "subtitles=\'%s\':si=0"', $escapedInputPath);
+            logMessage("Hardsub enabled for video {$this->videoId}", 'INFO');
+        }
+
+        // Build command
         $cmd = sprintf(
             '"%s" -i "%s" ' .
             '-c:v libx264 -preset %s ' .
+            '%s ' . // Subtitle filter (if any)
             '-b:v %s -maxrate %s -bufsize %s ' .
             '-g 48 -keyint_min 48 -sc_threshold 0 ' .
             '-c:a aac -b:a %s -ar 48000 ' .
@@ -93,6 +108,7 @@ class FFmpegEncoder
             $ffmpegPath,
             $inputPath,
             $profile['preset'],
+            $subtitleFilter,
             $profile['video_bitrate'],
             $maxRate,
             $bufSize,
@@ -104,6 +120,35 @@ class FFmpegEncoder
         );
 
         return $cmd;
+    }
+
+    /**
+     * Detect if video has subtitle streams
+     */
+    private function detectSubtitleStream()
+    {
+        $ffprobePath = str_replace('ffmpeg', 'ffprobe', FFMPEG_PATH);
+        $ffprobePath = str_replace('/', '\\', $ffprobePath);
+        $inputPath = str_replace('/', '\\', $this->inputPath);
+
+        // Use ffprobe to check for subtitle streams
+        $cmd = sprintf(
+            '"%s" -v error -select_streams s -show_entries stream=index,codec_name -of csv=p=0 "%s" 2>&1',
+            $ffprobePath,
+            $inputPath
+        );
+
+        $output = [];
+        exec($cmd, $output, $exitCode);
+
+        // If output is not empty, we have subtitle streams
+        $hasSubtitle = !empty($output) && !empty(trim(implode('', $output)));
+
+        if ($hasSubtitle) {
+            logMessage("Detected subtitle stream in video {$this->videoId}: " . implode(', ', $output), 'DEBUG');
+        }
+
+        return $hasSubtitle;
     }
 
     /**

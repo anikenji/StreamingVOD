@@ -65,31 +65,67 @@ function showUploadPage() {
     showPage('upload');
 }
 
+// Pagination state
+let currentPage = 1;
+let totalPages = 1;
+let searchTimeout = null;
+
 /**
- * Load videos from API
+ * Debounce search input
  */
-async function loadVideos() {
+function debounceSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        loadVideos(1);
+    }, 300);
+}
+
+/**
+ * Load videos from API with pagination and search
+ */
+async function loadVideos(page = 1) {
     const grid = document.getElementById('videos-grid');
     const loading = document.getElementById('videos-loading');
     const empty = document.getElementById('videos-empty');
+    const pagination = document.getElementById('videos-pagination');
 
+    currentPage = page;
     loading.style.display = 'block';
     grid.innerHTML = '';
     empty.style.display = 'none';
+    if (pagination) pagination.innerHTML = '';
+
+    // Get search and filter values
+    const searchInput = document.getElementById('video-search');
+    const statusFilter = document.getElementById('video-status-filter');
+    const search = searchInput ? searchInput.value.trim() : '';
+    const status = statusFilter ? statusFilter.value : '';
+
+    // Build URL with parameters
+    const params = new URLSearchParams({
+        page: page,
+        limit: 50
+    });
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
 
     try {
-        const response = await fetch('/api/videos/list.php');
+        const response = await fetch('/api/videos/list.php?' + params.toString());
         const data = await response.json();
 
         if (data.success) {
             currentVideos = data.videos;
+            totalPages = data.pagination?.pages || 1;
 
             if (currentVideos.length === 0) {
                 loading.style.display = 'none';
                 empty.style.display = 'block';
+                empty.querySelector('h3').textContent = search ? 'Không tìm thấy video' : 'No videos yet';
+                empty.querySelector('p').textContent = search ? 'Thử từ khóa khác' : 'Upload your first video to get started';
             } else {
                 loading.style.display = 'none';
                 renderVideos(currentVideos);
+                renderPagination(data.pagination);
 
                 // Start progress polling for processing videos
                 startProgressPolling();
@@ -99,6 +135,44 @@ async function loadVideos() {
         console.error('Error loading videos:', error);
         loading.innerHTML = '<p style="color: var(--danger);">Failed to load videos</p>';
     }
+}
+
+/**
+ * Render pagination controls
+ */
+function renderPagination(pagination) {
+    const container = document.getElementById('videos-pagination');
+    if (!container || !pagination || pagination.pages <= 1) return;
+
+    const { page, pages, total } = pagination;
+    let html = `<span style="color: var(--text-muted); margin-right: 12px;">Tổng: ${total} video</span>`;
+
+    // Previous button
+    html += `<button class="btn-small" onclick="loadVideos(${page - 1})" ${page <= 1 ? 'disabled' : ''} style="opacity: ${page <= 1 ? '0.5' : '1'}">◀ Prev</button>`;
+
+    // Page numbers (show 5 pages around current)
+    const startPage = Math.max(1, page - 2);
+    const endPage = Math.min(pages, page + 2);
+
+    if (startPage > 1) {
+        html += `<button class="btn-small" onclick="loadVideos(1)">1</button>`;
+        if (startPage > 2) html += `<span style="padding: 0 8px;">...</span>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        const active = i === page ? 'background: var(--primary); color: white;' : '';
+        html += `<button class="btn-small" onclick="loadVideos(${i})" style="${active}">${i}</button>`;
+    }
+
+    if (endPage < pages) {
+        if (endPage < pages - 1) html += `<span style="padding: 0 8px;">...</span>`;
+        html += `<button class="btn-small" onclick="loadVideos(${pages})">${pages}</button>`;
+    }
+
+    // Next button
+    html += `<button class="btn-small" onclick="loadVideos(${page + 1})" ${page >= pages ? 'disabled' : ''} style="opacity: ${page >= pages ? '0.5' : '1'}">Next ▶</button>`;
+
+    container.innerHTML = html;
 }
 
 /**
@@ -732,54 +806,234 @@ function handleMovieFileSelect(event, movieId) {
 }
 
 /**
- * Upload files to movie with auto episode detection
+ * Upload files to movie with auto episode detection and progress tracking
  */
+let movieUploadControllers = new Map(); // Track active uploads for cancellation
+
 async function uploadFilesToMovie(files, movieId) {
+    const episodesListEl = document.getElementById('movie-episodes-list');
+
     for (const file of files) {
         const episodeNumber = parseEpisodeNumber(file.name);
+        const uploadId = 'upload-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
-        // Show progress
-        const episodesListEl = document.getElementById('movie-episodes-list');
+        // Show progress UI with cancel button
         if (episodesListEl) {
             const progressHtml = `
-                <div id="upload-${Date.now()}" style="padding: 12px; background: rgba(99, 102, 241, 0.2); border-radius: 8px; margin-bottom: 8px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <div id="${uploadId}" style="padding: 12px; background: rgba(99, 102, 241, 0.2); border-radius: 8px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span>📤 Uploading: ${escapeHtml(file.name)}</span>
-                        <span>Tập ${episodeNumber || 'Auto'}</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span>Tập ${episodeNumber || 'Auto'}</span>
+                            <button class="btn-small btn-delete" onclick="cancelMovieUpload('${uploadId}')" title="Cancel">✕</button>
+                        </div>
                     </div>
                     <div class="progress-bar" style="height: 6px;">
-                        <div class="progress-fill" style="width: 0%;" id="upload-progress-${Date.now()}"></div>
+                        <div class="progress-fill" style="width: 0%;" id="${uploadId}-progress"></div>
                     </div>
+                    <div id="${uploadId}-status" style="font-size: 0.85em; color: var(--text-muted); margin-top: 4px;">0%</div>
                 </div>
             `;
             episodesListEl.insertAdjacentHTML('beforeend', progressHtml);
         }
 
-        // Upload file
-        const formData = new FormData();
-        formData.append('video', file);
-        formData.append('movie_id', movieId);
-        if (episodeNumber) formData.append('episode_number', episodeNumber);
-
         try {
-            const response = await fetch('/api/videos/upload.php', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                console.log('Uploaded:', file.name, 'Episode:', episodeNumber);
+            // Use chunked upload for large files (> 50MB)
+            if (file.size > 50 * 1024 * 1024) {
+                await uploadFileChunkedToMovie(file, movieId, episodeNumber, uploadId);
             } else {
-                alert('Upload error: ' + data.error);
+                await uploadFileSingleToMovie(file, movieId, episodeNumber, uploadId);
             }
         } catch (error) {
-            alert('Upload failed: ' + error.message);
+            if (error.message === 'Upload cancelled') {
+                console.log('Upload cancelled:', file.name);
+            } else {
+                console.error('Upload failed:', error);
+                updateMovieUploadStatus(uploadId, `Error: ${error.message}`, true);
+            }
         }
     }
 
     // Refresh movie detail after all uploads
     setTimeout(() => showMovieDetail(movieId), 1000);
+}
+
+/**
+ * Upload single file to movie with progress tracking
+ */
+function uploadFileSingleToMovie(file, movieId, episodeNumber, uploadId) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        movieUploadControllers.set(uploadId, xhr);
+
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                updateMovieUploadProgress(uploadId, percent);
+            }
+        });
+
+        xhr.addEventListener('load', () => {
+            movieUploadControllers.delete(uploadId);
+            if (xhr.status === 200) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        updateMovieUploadStatus(uploadId, '✅ Upload thành công! Đang xử lý...', false);
+                        console.log('Uploaded:', file.name, 'Episode:', episodeNumber);
+                        resolve(data);
+                    } else {
+                        updateMovieUploadStatus(uploadId, `❌ Error: ${data.error}`, true);
+                        reject(new Error(data.error || 'Upload failed'));
+                    }
+                } catch (e) {
+                    reject(new Error('Invalid response from server'));
+                }
+            } else {
+                updateMovieUploadStatus(uploadId, `❌ HTTP Error: ${xhr.status}`, true);
+                reject(new Error(`HTTP ${xhr.status}`));
+            }
+        });
+
+        xhr.addEventListener('error', () => {
+            movieUploadControllers.delete(uploadId);
+            updateMovieUploadStatus(uploadId, '❌ Network error', true);
+            reject(new Error('Network error'));
+        });
+
+        xhr.addEventListener('abort', () => {
+            movieUploadControllers.delete(uploadId);
+            updateMovieUploadStatus(uploadId, '⛔ Đã hủy', true);
+            reject(new Error('Upload cancelled'));
+        });
+
+        const formData = new FormData();
+        formData.append('video', file);
+        formData.append('movie_id', movieId);
+        if (episodeNumber) formData.append('episode_number', episodeNumber);
+
+        xhr.open('POST', '/api/videos/upload.php');
+        xhr.send(formData);
+    });
+}
+
+/**
+ * Upload large file in chunks to movie
+ */
+async function uploadFileChunkedToMovie(file, movieId, episodeNumber, uploadId) {
+    const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+    const totalChunks = Math.ceil(file.size / chunkSize);
+    const videoId = generateMovieUploadUUID();
+
+    // Add to tracker so cancellation works
+    movieUploadControllers.set(uploadId, { cancelled: false });
+
+    for (let i = 0; i < totalChunks; i++) {
+        // Check if cancelled
+        const tracker = movieUploadControllers.get(uploadId);
+        if (!tracker || tracker.cancelled) {
+            movieUploadControllers.delete(uploadId);
+            throw new Error('Upload cancelled');
+        }
+
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+        formData.append('video_id', videoId);
+        formData.append('chunk_index', i);
+        formData.append('total_chunks', totalChunks);
+        formData.append('original_filename', file.name);
+        formData.append('movie_id', movieId);
+        if (episodeNumber) formData.append('episode_number', episodeNumber);
+
+        const response = await fetch('/api/videos/upload.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            updateMovieUploadStatus(uploadId, `❌ Error: ${data.error}`, true);
+            throw new Error(data.error || 'Upload failed');
+        }
+
+        // Update progress
+        const percent = Math.round(((i + 1) / totalChunks) * 100);
+        updateMovieUploadProgress(uploadId, percent);
+
+        // Check if completed
+        if (data.upload_complete) {
+            updateMovieUploadStatus(uploadId, '✅ Upload thành công! Đang xử lý...', false);
+            console.log('Uploaded:', file.name, 'Episode:', episodeNumber);
+            return data;
+        }
+    }
+}
+
+/**
+ * Update movie upload progress bar
+ */
+function updateMovieUploadProgress(uploadId, percent) {
+    const progressBar = document.getElementById(`${uploadId}-progress`);
+    const statusEl = document.getElementById(`${uploadId}-status`);
+
+    if (progressBar) {
+        progressBar.style.width = `${percent}%`;
+    }
+    if (statusEl && percent < 100) {
+        statusEl.textContent = `${percent}%`;
+    }
+}
+
+/**
+ * Update movie upload status text
+ */
+function updateMovieUploadStatus(uploadId, message, isError) {
+    const statusEl = document.getElementById(`${uploadId}-status`);
+    const containerEl = document.getElementById(uploadId);
+
+    if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    }
+
+    if (containerEl && isError) {
+        containerEl.style.background = 'rgba(239, 68, 68, 0.2)';
+    }
+}
+
+/**
+ * Cancel movie upload
+ */
+function cancelMovieUpload(uploadId) {
+    const tracker = movieUploadControllers.get(uploadId);
+    if (tracker) {
+        // If it's an XHR (single upload), abort it
+        if (tracker.abort && typeof tracker.abort === 'function') {
+            tracker.abort();
+        }
+        // If it's a chunked upload tracker, mark as cancelled
+        if (typeof tracker === 'object' && 'cancelled' in tracker) {
+            tracker.cancelled = true;
+        }
+    }
+    movieUploadControllers.delete(uploadId);
+    updateMovieUploadStatus(uploadId, '⛔ Đã hủy', true);
+}
+
+/**
+ * Generate UUID for chunked upload
+ */
+function generateMovieUploadUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }
 
 /**

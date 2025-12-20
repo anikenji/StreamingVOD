@@ -40,6 +40,8 @@ function handleChunkedUpload()
     $chunkIndex = intval($_POST['chunk_index'] ?? 0);
     $totalChunks = intval($_POST['total_chunks'] ?? 1);
     $originalFilename = $_POST['original_filename'] ?? '';
+    $movieId = isset($_POST['movie_id']) ? intval($_POST['movie_id']) : null;
+    $episodeNumber = isset($_POST['episode_number']) ? intval($_POST['episode_number']) : null;
 
     if (empty($videoId) || empty($originalFilename)) {
         errorResponse('Missing required parameters');
@@ -54,6 +56,20 @@ function handleChunkedUpload()
     $tempDir = TEMP_DIR . '/' . $videoId;
     ensureDirectory($tempDir);
 
+    // Store movie_id and episode_number in metadata file (for when merging)
+    $metadataFile = $tempDir . '/metadata.json';
+    if ($movieId || $episodeNumber) {
+        $metadata = [];
+        if (file_exists($metadataFile)) {
+            $metadata = json_decode(file_get_contents($metadataFile), true) ?: [];
+        }
+        if ($movieId)
+            $metadata['movie_id'] = $movieId;
+        if ($episodeNumber)
+            $metadata['episode_number'] = $episodeNumber;
+        file_put_contents($metadataFile, json_encode($metadata));
+    }
+
     // Save chunk
     $chunkFile = $tempDir . '/chunk_' . str_pad($chunkIndex, 4, '0', STR_PAD_LEFT);
 
@@ -67,12 +83,20 @@ function handleChunkedUpload()
     $uploadedChunks = count(glob($tempDir . '/chunk_*'));
 
     if ($uploadedChunks >= $totalChunks) {
+        // Read metadata
+        $metadata = [];
+        if (file_exists($metadataFile)) {
+            $metadata = json_decode(file_get_contents($metadataFile), true) ?: [];
+        }
+        $finalMovieId = $metadata['movie_id'] ?? null;
+        $finalEpisodeNumber = $metadata['episode_number'] ?? null;
+
         // Merge chunks
         $finalPath = mergeChunks($videoId, $originalFilename, $totalChunks);
 
         if ($finalPath) {
-            // Create video record and encoding jobs
-            createVideoRecord($videoId, $userId, $originalFilename, $finalPath);
+            // Create video record and encoding jobs with movie assignment
+            createVideoRecord($videoId, $userId, $originalFilename, $finalPath, $finalMovieId, $finalEpisodeNumber);
 
             successResponse([
                 'video_id' => $videoId,
@@ -219,4 +243,73 @@ function createVideoRecord($videoId, $userId, $originalFilename, $filePath, $mov
     }
 
     logMessage("Video uploaded: $videoId - $originalFilename (User: $userId)", 'INFO');
+
+    // Trigger background worker to process the video
+    triggerBackgroundWorker();
 }
+
+/**
+ * Trigger background worker to process pending videos
+ * Runs the run-once.php script in the background without blocking
+ */
+function triggerBackgroundWorker()
+{
+    $workerScript = realpath(__DIR__ . '/../../workers/run-once.php');
+    $lockFile = __DIR__ . '/../../workers/worker.lock';
+
+    // Check if worker script exists
+    if (!$workerScript || !file_exists($workerScript)) {
+        logMessage("Worker script not found", 'ERROR');
+        return;
+    }
+
+    // Check if worker is already running (lock file exists and is recent < 30 min)
+    if (file_exists($lockFile) && (time() - filemtime($lockFile)) < 1800) {
+        logMessage("Worker already running, skipping trigger", 'DEBUG');
+        return;
+    }
+
+    // Windows: Use multiple methods to try triggering
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        // Find PHP executable
+        $phpPaths = [
+            'C:\\wamp64\\bin\\php\\php8.2.26\\php.exe',
+            'C:\\wamp64\\bin\\php\\php8.1.0\\php.exe',
+            'C:\\wamp64\\bin\\php\\php8.0.0\\php.exe',
+            PHP_BINARY,
+            'php'
+        ];
+
+        $phpPath = 'php';
+        foreach ($phpPaths as $path) {
+            if (file_exists($path)) {
+                $phpPath = $path;
+                break;
+            }
+        }
+
+        // Create a batch file to run the worker
+        $batContent = sprintf(
+            '@echo off' . "\r\n" .
+            '"%s" "%s"' . "\r\n",
+            $phpPath,
+            $workerScript
+        );
+
+        $batFile = __DIR__ . '/../../workers/auto-worker.bat';
+        file_put_contents($batFile, $batContent);
+
+        // Method 1: Use cmd.exe with start /B
+        $command = sprintf('cmd.exe /c start /B "" "%s"', $batFile);
+        pclose(popen($command, 'r'));
+
+        logMessage("Background worker triggered: $command", 'INFO');
+    } else {
+        // Linux/Mac: Use nohup
+        $command = sprintf('nohup php "%s" > /dev/null 2>&1 &', $workerScript);
+        exec($command);
+        logMessage("Background worker triggered via nohup", 'INFO');
+    }
+}
+
+

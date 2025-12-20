@@ -543,28 +543,28 @@ $outroEnd = $video['outro_end'] ?? null;
             }
         });
         // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
-        document.addEventListener('keydown', function (e) {
-            // F12
-            if (e.keyCode === 123) {
-                e.preventDefault();
-            }
-            // Ctrl+Shift+I
-            if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
-                e.preventDefault();
-            }
-            // Ctrl+Shift+C
-            if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
-                e.preventDefault();
-            }
-            // Ctrl+Shift+J
-            if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
-                e.preventDefault();
-            }
-            // Ctrl+U
-            if (e.ctrlKey && e.code === 'KeyU') {
-                e.preventDefault();
-            }
-        });
+        // document.addEventListener('keydown', function (e) {
+        //     // F12
+        //     if (e.keyCode === 123) {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+Shift+I
+        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+Shift+C
+        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+Shift+J
+        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+U
+        //     if (e.ctrlKey && e.code === 'KeyU') {
+        //         e.preventDefault();
+        //     }
+        // });
         // Update stats every second when visible
         setInterval(updateStats, 1000);
 

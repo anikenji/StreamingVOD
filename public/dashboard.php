@@ -77,9 +77,32 @@ $user = getCurrentUser();
 
             <!-- Videos Page -->
             <div id="videos-page" class="page active">
+                <!-- Search & Filter Bar -->
+                <div class="search-bar"
+                    style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="video-search" placeholder="🔍 Tìm video theo tên..."
+                        style="flex: 1; min-width: 200px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);"
+                        oninput="debounceSearch()">
+                    <select id="video-status-filter" onchange="loadVideos(1)"
+                        style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+                        <option value="">Tất cả status</option>
+                        <option value="completed">Completed</option>
+                        <option value="processing">Processing</option>
+                        <option value="pending">Pending</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+
                 <div class="videos-grid" id="videos-grid">
                     <!-- Videos will be loaded here -->
                 </div>
+
+                <!-- Pagination -->
+                <div id="videos-pagination"
+                    style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 24px;">
+                    <!-- Pagination will be rendered here -->
+                </div>
+
                 <div class="loading" id="videos-loading">
                     <div class="spinner"></div>
                 </div>
