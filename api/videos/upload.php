@@ -5,6 +5,35 @@
  * Supports chunked upload for large files
  */
 
+// Suppress HTML error output - API must return JSON only
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// Set JSON content type early
+header('Content-Type: application/json');
+
+// Custom error handler to return JSON instead of HTML
+set_error_handler(function ($severity, $message, $file, $line) {
+    // Log the error
+    error_log("PHP Error [$severity]: $message in $file on line $line");
+
+    // Don't die on warnings/notices, just log them
+    if ($severity === E_WARNING || $severity === E_NOTICE || $severity === E_DEPRECATED) {
+        return true; // Continue execution
+    }
+
+    // For fatal-ish errors, return JSON error
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+// Handle uncaught exceptions
+set_exception_handler(function ($e) {
+    error_log("Uncaught exception: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
+    exit;
+});
+
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';

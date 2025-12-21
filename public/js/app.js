@@ -807,11 +807,13 @@ function handleMovieFileSelect(event, movieId) {
 
 /**
  * Upload files to movie with auto episode detection and progress tracking
+ * Uploads run in parallel for better performance
  */
 let movieUploadControllers = new Map(); // Track active uploads for cancellation
 
 async function uploadFilesToMovie(files, movieId) {
     const episodesListEl = document.getElementById('movie-episodes-list');
+    const uploadPromises = [];
 
     for (const file of files) {
         const episodeNumber = parseEpisodeNumber(file.name);
@@ -837,25 +839,56 @@ async function uploadFilesToMovie(files, movieId) {
             episodesListEl.insertAdjacentHTML('beforeend', progressHtml);
         }
 
-        try {
-            // Use chunked upload for large files (> 50MB)
-            if (file.size > 50 * 1024 * 1024) {
-                await uploadFileChunkedToMovie(file, movieId, episodeNumber, uploadId);
-            } else {
-                await uploadFileSingleToMovie(file, movieId, episodeNumber, uploadId);
+        // Create upload promise (run in parallel)
+        const uploadPromise = (async () => {
+            try {
+                // Use chunked upload for large files (> 50MB)
+                if (file.size > 50 * 1024 * 1024) {
+                    await uploadFileChunkedToMovie(file, movieId, episodeNumber, uploadId);
+                } else {
+                    await uploadFileSingleToMovie(file, movieId, episodeNumber, uploadId);
+                }
+                return { success: true, file: file.name };
+            } catch (error) {
+                if (error.message === 'Upload cancelled') {
+                    console.log('Upload cancelled:', file.name);
+                    return { success: false, file: file.name, cancelled: true };
+                } else {
+                    console.error('Upload failed:', file.name, error);
+                    updateMovieUploadStatus(uploadId, `❌ Error: ${error.message}`, true);
+                    return { success: false, file: file.name, error: error.message };
+                }
             }
-        } catch (error) {
-            if (error.message === 'Upload cancelled') {
-                console.log('Upload cancelled:', file.name);
-            } else {
-                console.error('Upload failed:', error);
-                updateMovieUploadStatus(uploadId, `Error: ${error.message}`, true);
-            }
-        }
+        })();
+
+        uploadPromises.push(uploadPromise);
     }
 
-    // Refresh movie detail after all uploads
-    setTimeout(() => showMovieDetail(movieId), 1000);
+    // Wait for all uploads to complete (parallel)
+    const results = await Promise.allSettled(uploadPromises);
+
+    // Count results
+    let successCount = 0;
+    let failCount = 0;
+    results.forEach(r => {
+        if (r.status === 'fulfilled' && r.value.success) successCount++;
+        else if (r.status === 'fulfilled' && !r.value.cancelled) failCount++;
+    });
+
+    // Show refresh button instead of auto-reload
+    if (episodesListEl && successCount > 0) {
+        const refreshHtml = `
+            <div id="upload-complete-notice" style="padding: 16px; background: rgba(34, 197, 94, 0.2); border-radius: 8px; margin-top: 12px; text-align: center;">
+                <p style="margin-bottom: 12px;">
+                    ✅ ${successCount} video uploaded thành công${failCount > 0 ? `, ❌ ${failCount} thất bại` : ''}
+                </p>
+                <button class="btn-primary" onclick="showMovieDetail(${movieId}); document.getElementById('upload-complete-notice')?.remove();">
+                    🔄 Refresh danh sách
+                </button>
+            </div>
+        `;
+        episodesListEl.insertAdjacentHTML('beforeend', refreshHtml);
+    }
 }
 
 /**
@@ -1530,3 +1563,111 @@ async function deleteUser(userId, username) {
         alert('Xóa user thất bại: ' + error.message);
     }
 }
+
+// ================================
+// HLS M3U8 Upload Functions
+// ================================
+
+/**
+ * Switch between video and HLS upload tabs
+ */
+function switchUploadTab(tab) {
+    const videoContainer = document.getElementById('video-upload-container');
+    const hlsContainer = document.getElementById('hls-upload-container');
+    const tabVideo = document.getElementById('tab-video');
+    const tabHls = document.getElementById('tab-hls');
+
+    if (tab === 'video') {
+        videoContainer.style.display = 'block';
+        hlsContainer.style.display = 'none';
+        tabVideo.style.opacity = '1';
+        tabVideo.className = 'btn-primary';
+        tabHls.style.opacity = '0.6';
+        tabHls.className = 'btn-secondary';
+    } else {
+        videoContainer.style.display = 'none';
+        hlsContainer.style.display = 'block';
+        tabVideo.style.opacity = '0.6';
+        tabVideo.className = 'btn-secondary';
+        tabHls.style.opacity = '1';
+        tabHls.className = 'btn-primary';
+    }
+}
+
+/**
+ * Handle HLS file select
+ */
+function handleHLSFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        uploadHLSFile(file);
+    }
+}
+
+/**
+ * Upload HLS m3u8 file
+ */
+async function uploadHLSFile(file) {
+    const resultDiv = document.getElementById('hls-upload-result');
+    const title = document.getElementById('hls-title').value.trim();
+
+    resultDiv.style.display = 'block';
+    resultDiv.style.background = 'rgba(99, 102, 241, 0.2)';
+    resultDiv.innerHTML = '<p>⏳ Đang upload...</p>';
+
+    const formData = new FormData();
+    formData.append('m3u8', file);
+    if (title) formData.append('title', title);
+
+    try {
+        const response = await fetch('/api/videos/upload-hls.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            resultDiv.style.background = 'rgba(34, 197, 94, 0.2)';
+            resultDiv.innerHTML = `
+                <h4 style="margin-bottom: 12px;">✅ Upload thành công!</h4>
+                <div style="margin-bottom: 8px;">
+                    <strong>Video ID:</strong> ${data.video_id}
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <strong>Embed URL:</strong><br>
+                    <input type="text" value="${data.embed_url}" readonly 
+                           style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-primary);"
+                           onclick="this.select(); document.execCommand('copy');">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <strong>M3U8 URL:</strong><br>
+                    <input type="text" value="${data.m3u8_url}" readonly 
+                           style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-primary);"
+                           onclick="this.select(); document.execCommand('copy');">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <strong>Embed Code:</strong><br>
+                    <textarea readonly style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-primary); height: 60px;"
+                              onclick="this.select(); document.execCommand('copy');">${escapeHtml(data.embed_code)}</textarea>
+                </div>
+                <button class="btn-primary" onclick="window.open('${data.embed_url}', '_blank')">
+                    ▶️ Xem Video
+                </button>
+                <button class="btn-secondary" onclick="document.getElementById('hls-upload-result').style.display='none'; document.getElementById('hls-file-input').value=''; document.getElementById('hls-title').value='';">
+                    Upload khác
+                </button>
+            `;
+
+            // Refresh video list
+            loadVideos(1);
+        } else {
+            resultDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+            resultDiv.innerHTML = `<p>❌ Lỗi: ${data.error}</p>`;
+        }
+    } catch (error) {
+        resultDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+        resultDiv.innerHTML = `<p>❌ Lỗi: ${error.message}</p>`;
+    }
+}
+

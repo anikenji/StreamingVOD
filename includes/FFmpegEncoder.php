@@ -80,44 +80,85 @@ class FFmpegEncoder
         $inputPath = str_replace('/', '\\', $this->inputPath);
         $outputDirWin = str_replace('/', '\\', $outputDir);
 
+        // Check encoding type
+        $encodeType = defined('ENCODE_TYPE') ? ENCODE_TYPE : 'auto';
+
         // Check for subtitle streams
         $hasSubtitle = $this->detectSubtitleStream();
         $subtitleFilter = '';
 
+        // Determine effective mode
+        $useCopy = false; // Default to encode
+
+        if ($encodeType === 'copy') {
+            $useCopy = true;
+        } elseif ($encodeType === 'auto') {
+            // Auto mode: Use copy if NO subtitles, otherwise encode (to burn subs)
+            $useCopy = !$hasSubtitle;
+        }
+        // If 'encode', useCopy remains false
+
         if ($hasSubtitle) {
-            // For embedded subtitles (MKV with ASS/SSA), use subtitles filter
-            // Need to escape path for FFmpeg filter (use forward slashes and escape colons/backslashes)
-            $escapedInputPath = str_replace('\\', '/', $this->inputPath);
-            $escapedInputPath = str_replace(':', '\\:', $escapedInputPath);
-            $subtitleFilter = sprintf('-vf "subtitles=\'%s\':si=0"', $escapedInputPath);
-            logMessage("Hardsub enabled for video {$this->videoId}", 'INFO');
+            if ($useCopy) {
+                logMessage("Warning: Hardsub/Subtitles cannot be burned in 'stream copy' mode for video {$this->videoId}", 'WARNING');
+            } else {
+                // For embedded subtitles (MKV with ASS/SSA), use subtitles filter
+                // Need to escape path for FFmpeg filter (use forward slashes and escape colons/backslashes)
+                $escapedInputPath = str_replace('\\', '/', $this->inputPath);
+                $escapedInputPath = str_replace(':', '\\:', $escapedInputPath);
+                $subtitleFilter = sprintf('-vf "subtitles=\'%s\':si=0"', $escapedInputPath);
+                logMessage("Hardsub enabled for video {$this->videoId}", 'INFO');
+            }
+        } else {
+            if ($useCopy) {
+                logMessage("Auto mode: No subtitles detected. Using 'stream copy' for efficiency.", 'INFO');
+            }
         }
 
         // Build command
-        $cmd = sprintf(
-            '"%s" -i "%s" ' .
-            '-c:v libx264 -preset %s ' .
-            '%s ' . // Subtitle filter (if any)
-            '-b:v %s -maxrate %s -bufsize %s ' .
-            '-g 48 -keyint_min 48 -sc_threshold 0 ' .
-            '-c:a aac -b:a %s -ar 48000 ' .
-            '-hls_time %d -hls_playlist_type %s ' .
-            '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
-            '-f hls "%s\\video.m3u8" ' .
-            '-y',
-            $ffmpegPath,
-            $inputPath,
-            $profile['preset'],
-            $subtitleFilter,
-            $profile['video_bitrate'],
-            $maxRate,
-            $bufSize,
-            $profile['audio_bitrate'],
-            HLS_SEGMENT_DURATION,
-            HLS_PLAYLIST_TYPE,
-            $outputDirWin,
-            $outputDirWin
-        );
+        if ($useCopy) {
+            // Stream Copy Mode
+            $cmd = sprintf(
+                '"%s" -i "%s" ' .
+                '-c:v copy -c:a copy ' .
+                '-hls_time %d -hls_playlist_type %s ' .
+                '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
+                '-f hls "%s\\video.m3u8" ' .
+                '-y',
+                $ffmpegPath,
+                $inputPath,
+                HLS_SEGMENT_DURATION,
+                HLS_PLAYLIST_TYPE,
+                $outputDirWin,
+                $outputDirWin
+            );
+        } else {
+            // Re-encode Mode
+            $cmd = sprintf(
+                '"%s" -i "%s" ' .
+                '-c:v libx264 -preset %s ' .
+                '%s ' . // Subtitle filter (if any)
+                '-b:v %s -maxrate %s -bufsize %s ' .
+                '-g 48 -keyint_min 48 -sc_threshold 0 ' .
+                '-c:a aac -b:a %s -ar 48000 ' .
+                '-hls_time %d -hls_playlist_type %s ' .
+                '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
+                '-f hls "%s\\video.m3u8" ' .
+                '-y',
+                $ffmpegPath,
+                $inputPath,
+                $profile['preset'],
+                $subtitleFilter,
+                $profile['video_bitrate'],
+                $maxRate,
+                $bufSize,
+                $profile['audio_bitrate'],
+                HLS_SEGMENT_DURATION,
+                HLS_PLAYLIST_TYPE,
+                $outputDirWin,
+                $outputDirWin
+            );
+        }
 
         return $cmd;
     }
@@ -131,24 +172,42 @@ class FFmpegEncoder
         $ffprobePath = str_replace('/', '\\', $ffprobePath);
         $inputPath = str_replace('/', '\\', $this->inputPath);
 
+        // Check if input file exists
+        if (!file_exists($this->inputPath)) {
+            logMessage("detectSubtitleStream: Input file not found: {$this->inputPath}", 'WARNING');
+            return false;
+        }
+
         // Use ffprobe to check for subtitle streams
+        // Note: Don't redirect stderr to stdout (remove 2>&1) so we only get actual data
         $cmd = sprintf(
-            '"%s" -v error -select_streams s -show_entries stream=index,codec_name -of csv=p=0 "%s" 2>&1',
+            '"%s" -v error -select_streams s -show_entries stream=index,codec_name -of csv=p=0 "%s"',
             $ffprobePath,
             $inputPath
         );
 
         $output = [];
+        $exitCode = -1;
         exec($cmd, $output, $exitCode);
 
-        // If output is not empty, we have subtitle streams
-        $hasSubtitle = !empty($output) && !empty(trim(implode('', $output)));
+        // Only consider we have subtitles if:
+        // 1. Exit code is 0 (command succeeded)
+        // 2. Output is not empty and contains valid stream data (numbers, not error messages)
+        $outputStr = trim(implode('', $output));
 
-        if ($hasSubtitle) {
-            logMessage("Detected subtitle stream in video {$this->videoId}: " . implode(', ', $output), 'DEBUG');
+        // Valid subtitle output looks like: "0,ass" or "0,subrip" (index,codec)
+        // Error messages would NOT match this pattern
+        $hasValidSubtitleData = $exitCode === 0
+            && !empty($outputStr)
+            && preg_match('/^\d+,\w+/', $outputStr);
+
+        if ($hasValidSubtitleData) {
+            logMessage("Detected subtitle stream in video {$this->videoId}: $outputStr", 'DEBUG');
+        } else {
+            logMessage("No subtitle stream detected in video {$this->videoId} (exitCode: $exitCode)", 'DEBUG');
         }
 
-        return $hasSubtitle;
+        return $hasValidSubtitleData;
     }
 
     /**

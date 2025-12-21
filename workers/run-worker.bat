@@ -1,16 +1,9 @@
 @echo off
-title One-Shot Video Processor
-color 0A
-echo ===============================================
-echo   One-Shot Video Processing
-echo ===============================================
-echo.
-echo Processing all pending videos...
-echo.
+cd /d "c:\wamp64\www\StreamingVOD\workers"
 
-php "c:\wamp64\www\StreamingVOD\workers\run-once.php"
+echo [%date% %time%] Starting One-Shot Video Processor
 
-echo.
-echo ===============================================
-echo Press any key to exit...
-pause >nul
+"C:\wamp64\bin\php\php8.2.26\php.exe" "c:\wamp64\www\StreamingVOD\workers\run-once.php"
+
+echo [%date% %time%] Worker finished with exit code: %ERRORLEVEL%
+exit /b %ERRORLEVEL%

@@ -137,7 +137,18 @@ $user = getCurrentUser();
 
             <!-- Upload Page -->
             <div id="upload-page" class="page">
-                <div class="upload-container">
+                <!-- Upload Mode Tabs -->
+                <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                    <button class="btn-primary" id="tab-video" onclick="switchUploadTab('video')" style="opacity: 1;">
+                        📹 Upload Video
+                    </button>
+                    <button class="btn-secondary" id="tab-hls" onclick="switchUploadTab('hls')" style="opacity: 0.6;">
+                        📋 Upload M3U8
+                    </button>
+                </div>
+
+                <!-- Video Upload Container -->
+                <div class="upload-container" id="video-upload-container">
                     <div class="upload-zone" id="upload-zone">
                         <div class="upload-icon">📁</div>
                         <h3>Drag & drop your video here</h3>
@@ -152,6 +163,29 @@ $user = getCurrentUser();
                             <div class="progress-fill" id="upload-progress-bar"></div>
                         </div>
                         <p id="upload-status">0%</p>
+                    </div>
+                </div>
+
+                <!-- HLS Upload Container -->
+                <div class="upload-container" id="hls-upload-container" style="display: none;">
+                    <div class="upload-zone" id="hls-upload-zone"
+                        onclick="document.getElementById('hls-file-input').click()">
+                        <div class="upload-icon">📋</div>
+                        <h3>Upload file M3U8</h3>
+                        <p>Kéo thả hoặc click để chọn file .m3u8</p>
+                        <p class="upload-hint">Dành cho HLS đã encode sẵn (segments ở host khác)</p>
+                        <input type="file" id="hls-file-input" accept=".m3u8" style="display: none;"
+                            onchange="handleHLSFileSelect(event)">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label>Tên video (tùy chọn)</label>
+                        <input type="text" id="hls-title" placeholder="Để trống sẽ dùng tên file">
+                    </div>
+
+                    <div id="hls-upload-result"
+                        style="display: none; margin-top: 16px; padding: 16px; background: rgba(34, 197, 94, 0.2); border-radius: 8px;">
+                        <!-- Result will be shown here -->
                     </div>
                 </div>
             </div>
