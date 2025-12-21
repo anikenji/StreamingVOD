@@ -288,6 +288,80 @@ $outroEnd = $video['outro_end'] ?? null;
             }
         }
     </style>
+    <script>
+        // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
+        document.addEventListener('keydown', function (e) {
+            // F12
+            if (e.keyCode === 123) {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+I
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+C
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+J
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
+                e.preventDefault();
+            }
+            // Ctrl+U
+            if (e.ctrlKey && e.code === 'KeyU') {
+                e.preventDefault();
+            }
+        });
+        const devtools = {
+            isOpen: false,
+            orientation: null
+        };
+
+        const threshold = 160;
+
+        const emitEvent = (isOpen, orientation) => {
+            window.dispatchEvent(new CustomEvent('devtoolschange', {
+                detail: {
+                    isOpen,
+                    orientation
+                }
+            }));
+        };
+
+        const checkDevTools = () => {
+            const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+            const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+            const orientation = widthThreshold ? 'vertical' : 'horizontal';
+
+            if (
+                !(heightThreshold && widthThreshold) &&
+                ((window.Firebug && window.Firebug.chrome && window.Firebug.chrome.isInitialized) || widthThreshold || heightThreshold)
+            ) {
+                if (!devtools.isOpen || devtools.orientation !== orientation) {
+                    emitEvent(true, orientation);
+                }
+                devtools.isOpen = true;
+                devtools.orientation = orientation;
+            } else {
+                if (devtools.isOpen) {
+                    emitEvent(false, null);
+                }
+                devtools.isOpen = false;
+                devtools.orientation = null;
+            }
+        };
+
+        setInterval(checkDevTools, 1);
+
+        // Lắng nghe sự kiện và thực hiện hành động
+        window.addEventListener('devtoolschange', event => {
+            if (event.detail.isOpen) {
+                // Hide body immediately for instant effect
+                document.body.style.display = 'none';
+                window.location.reload();
+            }
+        });
+    </script>
 </head>
 
 <body>
@@ -319,6 +393,7 @@ $outroEnd = $video['outro_end'] ?? null;
     <script>
         const VIDEO_ID = "<?= $videoId ?>";
         const COOKIE_NAME = `watch_progress_${VIDEO_ID}`;
+        const VOLUME_COOKIE_NAME = 'player_volume'; // Global volume cookie (shared across videos)
 
         // Cookie helpers
         function setCookie(name, value, days = 30) {
@@ -389,6 +464,12 @@ $outroEnd = $video['outro_end'] ?? null;
         let hasShownModal = false;
 
         playerInstance.on("ready", function () {
+            // Restore saved volume
+            const savedVolume = getCookie(VOLUME_COOKIE_NAME);
+            if (savedVolume !== null) {
+                playerInstance.setVolume(savedVolume);
+            }
+
             // Check for saved position and show modal
             if (savedPosition && savedPosition > 10) {
                 document.getElementById("resumeTimeDisplay").textContent = formatTime(savedPosition);
@@ -542,29 +623,7 @@ $outroEnd = $video['outro_end'] ?? null;
                 toggleStats();
             }
         });
-        // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
-        // document.addEventListener('keydown', function (e) {
-        //     // F12
-        //     if (e.keyCode === 123) {
-        //         e.preventDefault();
-        //     }
-        //     // Ctrl+Shift+I
-        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
-        //         e.preventDefault();
-        //     }
-        //     // Ctrl+Shift+C
-        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
-        //         e.preventDefault();
-        //     }
-        //     // Ctrl+Shift+J
-        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
-        //         e.preventDefault();
-        //     }
-        //     // Ctrl+U
-        //     if (e.ctrlKey && e.code === 'KeyU') {
-        //         e.preventDefault();
-        //     }
-        // });
+
         // Update stats every second when visible
         setInterval(updateStats, 1000);
 
@@ -688,6 +747,18 @@ $outroEnd = $video['outro_end'] ?? null;
         playerInstance.on('firstFrame', function () {
             console.log('FirstFrame event fired');
             initSkipButtons();
+        });
+
+        // Save volume when changed
+        playerInstance.on('volume', function (e) {
+            setCookie(VOLUME_COOKIE_NAME, e.volume, 365); // Save for 1 year
+        });
+
+        // Also save mute state as volume 0
+        playerInstance.on('mute', function (e) {
+            if (e.mute) {
+                setCookie(VOLUME_COOKIE_NAME, 0, 365);
+            }
         });
 
         playerInstance.on("time", function (e) {

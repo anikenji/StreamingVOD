@@ -9,7 +9,32 @@
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/security.php';
 
-// No CORS for segments (called from same origin via player)
+// SECURITY CHECK 1: Block direct browser navigation
+$secFetchDest = $_SERVER['HTTP_SEC_FETCH_DEST'] ?? '';
+if ($secFetchDest === 'document') {
+    http_response_code(403);
+    exit('Direct access not allowed');
+}
+
+// SECURITY CHECK 2: Verify Referer from allowed domains
+$referer = $_SERVER['HTTP_REFERER'] ?? '';
+$allowedDomains = ['anikenji.live', 'service.anikenji.live', 'localhost', '127.0.0.1'];
+$refererValid = false;
+
+foreach ($allowedDomains as $domain) {
+    if (stripos($referer, $domain) !== false) {
+        $refererValid = true;
+        break;
+    }
+}
+
+// Block if no valid referer (direct access from browser, VLC, etc.)
+if (empty($referer) || !$refererValid) {
+    http_response_code(403);
+    exit('Access denied - invalid referer');
+}
+
+// CORS header
 header('Access-Control-Allow-Origin: *');
 
 $videoId = $_GET['v'] ?? '';

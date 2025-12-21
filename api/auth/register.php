@@ -2,19 +2,21 @@
 /**
  * User Registration API
  * POST /api/auth/register.php
+ * 
+ * DISABLED: Public registration is not allowed
+ * Only admin can create new accounts
  */
 
 require_once __DIR__ . '/../../config/config.php';
-require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/helpers.php';
 
 enableCORS();
 
-// Only accept POST requests
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    errorResponse('Method not allowed', 405);
-}
+// DISABLED: Public registration is not allowed
+http_response_code(403);
+header('Content-Type: application/json');
+echo json_encode(['success' => false, 'message' => 'Registration is disabled. Contact admin for account creation.']);
+exit;
 
 // Get POST data
 $data = json_decode(file_get_contents('php://input'), true);
@@ -60,7 +62,7 @@ $userId = registerUser($username, $email, $password, 'user');
 
 if ($userId) {
     logMessage("New user registered: $username (ID: $userId)", 'INFO');
-    
+
     successResponse([
         'user' => [
             'id' => $userId,
