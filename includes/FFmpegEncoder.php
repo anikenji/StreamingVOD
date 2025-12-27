@@ -87,14 +87,33 @@ class FFmpegEncoder
         $hasSubtitle = $this->detectSubtitleStream();
         $subtitleFilter = '';
 
+        // Check video codec for compatibility
+        $videoCodec = $this->detectVideoCodec();
+
+        // AV1 requires re-encoding (JWPlayer doesn't support AV1)
+        $requiresReencode = $videoCodec ? $this->requiresReencode($videoCodec) : false;
+
+        // HEVC/H.265 can use fMP4 stream copy (JWPlayer supports HEVC)
+        $requiresFmp4 = $videoCodec ? $this->requiresFmp4Segments($videoCodec) : false;
+
         // Determine effective mode
         $useCopy = false; // Default to encode
 
-        if ($encodeType === 'copy') {
+        if ($requiresReencode) {
+            // AV1 codec detected - must re-encode to H.264 for JWPlayer compatibility
+            logMessage("Detected codec '{$videoCodec}' is not supported by JWPlayer. Forcing re-encode to H.264.", 'INFO');
+            $useCopy = false;
+        } elseif ($encodeType === 'copy') {
             $useCopy = true;
+            if ($requiresFmp4) {
+                logMessage("Stream copy mode: Detected codec '{$videoCodec}' requires fMP4 segments for HLS compatibility.", 'INFO');
+            }
         } elseif ($encodeType === 'auto') {
             // Auto mode: Use copy if NO subtitles, otherwise encode (to burn subs)
             $useCopy = !$hasSubtitle;
+            if ($useCopy && $requiresFmp4) {
+                logMessage("Auto mode: Detected codec '{$videoCodec}'. Using stream copy with fMP4 segments.", 'INFO');
+            }
         }
         // If 'encode', useCopy remains false
 
@@ -110,7 +129,7 @@ class FFmpegEncoder
                 logMessage("Hardsub enabled for video {$this->videoId}", 'INFO');
             }
         } else {
-            if ($useCopy) {
+            if ($useCopy && !$requiresFmp4 && !$requiresReencode) {
                 logMessage("Auto mode: No subtitles detected. Using 'stream copy' for efficiency.", 'INFO');
             }
         }
@@ -118,20 +137,44 @@ class FFmpegEncoder
         // Build command
         if ($useCopy) {
             // Stream Copy Mode
-            $cmd = sprintf(
-                '"%s" -i "%s" ' .
-                '-c:v copy -c:a copy ' .
-                '-hls_time %d -hls_playlist_type %s ' .
-                '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
-                '-f hls "%s\\video.m3u8" ' .
-                '-y',
-                $ffmpegPath,
-                $inputPath,
-                HLS_SEGMENT_DURATION,
-                HLS_PLAYLIST_TYPE,
-                $outputDirWin,
-                $outputDirWin
-            );
+            if ($requiresFmp4) {
+                // Use fMP4 segments for H.265/AV1 compatibility
+                // Note: init.mp4 uses relative filename only - FFmpeg places it with the m3u8
+                // Using full path in hls_fmp4_init_filename causes EXT-X-MAP:URI to have full path which breaks playback
+                $cmd = sprintf(
+                    '"%s" -i "%s" ' .
+                    '-c:v copy -c:a copy ' .
+                    '-f hls ' .
+                    '-hls_time %d -hls_playlist_type %s ' .
+                    '-hls_segment_type fmp4 ' .
+                    '-hls_fmp4_init_filename init.mp4 ' .
+                    '-hls_segment_filename "%s\\seg_%%04d.m4s" ' .
+                    '"%s\\video.m3u8" ' .
+                    '-y',
+                    $ffmpegPath,
+                    $inputPath,
+                    HLS_SEGMENT_DURATION,
+                    HLS_PLAYLIST_TYPE,
+                    $outputDirWin,
+                    $outputDirWin
+                );
+            } else {
+                // Use TS segments for H.264 (standard)
+                $cmd = sprintf(
+                    '"%s" -i "%s" ' .
+                    '-c:v copy -c:a copy ' .
+                    '-hls_time %d -hls_playlist_type %s ' .
+                    '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
+                    '-f hls "%s\\video.m3u8" ' .
+                    '-y',
+                    $ffmpegPath,
+                    $inputPath,
+                    HLS_SEGMENT_DURATION,
+                    HLS_PLAYLIST_TYPE,
+                    $outputDirWin,
+                    $outputDirWin
+                );
+            }
         } else {
             // Re-encode Mode
             $cmd = sprintf(
@@ -208,6 +251,80 @@ class FFmpegEncoder
         }
 
         return $hasValidSubtitleData;
+    }
+
+    /**
+     * Detect video codec using ffprobe
+     * Returns the codec name (e.g., 'h264', 'hevc', 'av1') or null if detection fails
+     */
+    private function detectVideoCodec()
+    {
+        // Use FFPROBE_PATH constant if defined, otherwise derive from FFMPEG_PATH
+        if (defined('FFPROBE_PATH')) {
+            $ffprobePath = str_replace('/', '\\', FFPROBE_PATH);
+        } else {
+            $ffprobePath = str_replace('ffmpeg', 'ffprobe', FFMPEG_PATH);
+            $ffprobePath = str_replace('/', '\\', $ffprobePath);
+        }
+        $inputPath = str_replace('/', '\\', $this->inputPath);
+
+        // Check if input file exists
+        if (!file_exists($this->inputPath)) {
+            logMessage("detectVideoCodec: Input file not found: {$this->inputPath}", 'WARNING');
+            return null;
+        }
+
+        // Use ffprobe to get video codec
+        $cmd = sprintf(
+            '"%s" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "%s"',
+            $ffprobePath,
+            $inputPath
+        );
+
+        logMessage("detectVideoCodec command: $cmd", 'DEBUG');
+
+        $output = [];
+        $exitCode = -1;
+        exec($cmd . ' 2>&1', $output, $exitCode);
+
+        $codec = trim(implode('', $output));
+
+        logMessage("detectVideoCodec output: '$codec' (exitCode: $exitCode)", 'DEBUG');
+
+        if ($exitCode === 0 && !empty($codec)) {
+            logMessage("Detected video codec for video {$this->videoId}: $codec", 'DEBUG');
+            return strtolower($codec);
+        }
+
+        logMessage("Failed to detect video codec for video {$this->videoId} (exitCode: $exitCode, output: $codec)", 'WARNING');
+        return null;
+    }
+
+    /**
+     * Check if the video codec requires re-encoding for JWPlayer compatibility
+     * Currently no codecs require forced re-encoding - we use fMP4 for modern codecs
+     */
+    private function requiresReencode($codec)
+    {
+        // AV1 and VP9 require re-encoding to H.264 because:
+        // - JWPlayer doesn't support AV1 in HLS
+        // - VP9 is not supported in HLS standard (Apple never added support)
+        // HEVC can use fMP4 stream copy (JWPlayer supports HEVC with fMP4)
+        $unsupportedCodecs = ['av1', 'vp9', 'vp09'];
+        return in_array($codec, $unsupportedCodecs);
+    }
+
+
+
+    /**
+     * Check if the video codec requires fMP4 segments for HLS
+     * AV1 and HEVC (H.265) are not supported in TS containers, but work with fMP4
+     */
+    private function requiresFmp4Segments($codec)
+    {
+        // Both AV1 and HEVC need fMP4 segments (TS doesn't support these codecs)
+        $fmp4Codecs = ['hevc', 'h265', 'av1'];
+        return in_array($codec, $fmp4Codecs);
     }
 
     /**

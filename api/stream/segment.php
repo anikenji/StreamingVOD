@@ -67,7 +67,19 @@ if (!file_exists($filePath)) {
 
 // Get file info
 $fileSize = filesize($filePath);
-$mimeType = 'video/mp2t';
+
+// Determine MIME type based on file extension
+$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+switch ($ext) {
+    case 'm4s':
+    case 'mp4':
+        $mimeType = 'video/mp4';
+        break;
+    case 'ts':
+    default:
+        $mimeType = 'video/mp2t';
+        break;
+}
 
 // Handle range requests for seeking
 $start = 0;

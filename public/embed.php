@@ -289,78 +289,78 @@ $outroEnd = $video['outro_end'] ?? null;
         }
     </style>
     <script>
-        // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
-        document.addEventListener('keydown', function (e) {
-            // F12
-            if (e.keyCode === 123) {
-                e.preventDefault();
-            }
-            // Ctrl+Shift+I
-            if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
-                e.preventDefault();
-            }
-            // Ctrl+Shift+C
-            if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
-                e.preventDefault();
-            }
-            // Ctrl+Shift+J
-            if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
-                e.preventDefault();
-            }
-            // Ctrl+U
-            if (e.ctrlKey && e.code === 'KeyU') {
-                e.preventDefault();
-            }
-        });
-        const devtools = {
-            isOpen: false,
-            orientation: null
-        };
+        // // 2. Vô hiệu hóa các phím tắt phổ biến để mở DevTools
+        // document.addEventListener('keydown', function (e) {
+        //     // F12
+        //     if (e.keyCode === 123) {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+Shift+I
+        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+Shift+C
+        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+Shift+J
+        //     if (e.ctrlKey && e.shiftKey && e.code === 'KeyJ') {
+        //         e.preventDefault();
+        //     }
+        //     // Ctrl+U
+        //     if (e.ctrlKey && e.code === 'KeyU') {
+        //         e.preventDefault();
+        //     }
+        // });
+        // const devtools = {
+        //     isOpen: false,
+        //     orientation: null
+        // };
 
-        const threshold = 160;
+        // const threshold = 160;
 
-        const emitEvent = (isOpen, orientation) => {
-            window.dispatchEvent(new CustomEvent('devtoolschange', {
-                detail: {
-                    isOpen,
-                    orientation
-                }
-            }));
-        };
+        // const emitEvent = (isOpen, orientation) => {
+        //     window.dispatchEvent(new CustomEvent('devtoolschange', {
+        //         detail: {
+        //             isOpen,
+        //             orientation
+        //         }
+        //     }));
+        // };
 
-        const checkDevTools = () => {
-            const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-            const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-            const orientation = widthThreshold ? 'vertical' : 'horizontal';
+        // const checkDevTools = () => {
+        //     const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+        //     const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+        //     const orientation = widthThreshold ? 'vertical' : 'horizontal';
 
-            if (
-                !(heightThreshold && widthThreshold) &&
-                ((window.Firebug && window.Firebug.chrome && window.Firebug.chrome.isInitialized) || widthThreshold || heightThreshold)
-            ) {
-                if (!devtools.isOpen || devtools.orientation !== orientation) {
-                    emitEvent(true, orientation);
-                }
-                devtools.isOpen = true;
-                devtools.orientation = orientation;
-            } else {
-                if (devtools.isOpen) {
-                    emitEvent(false, null);
-                }
-                devtools.isOpen = false;
-                devtools.orientation = null;
-            }
-        };
+        //     if (
+        //         !(heightThreshold && widthThreshold) &&
+        //         ((window.Firebug && window.Firebug.chrome && window.Firebug.chrome.isInitialized) || widthThreshold || heightThreshold)
+        //     ) {
+        //         if (!devtools.isOpen || devtools.orientation !== orientation) {
+        //             emitEvent(true, orientation);
+        //         }
+        //         devtools.isOpen = true;
+        //         devtools.orientation = orientation;
+        //     } else {
+        //         if (devtools.isOpen) {
+        //             emitEvent(false, null);
+        //         }
+        //         devtools.isOpen = false;
+        //         devtools.orientation = null;
+        //     }
+        // };
 
-        setInterval(checkDevTools, 1);
+        // setInterval(checkDevTools, 1);
 
-        // Lắng nghe sự kiện và thực hiện hành động
-        window.addEventListener('devtoolschange', event => {
-            if (event.detail.isOpen) {
-                // Hide body immediately for instant effect
-                document.body.style.display = 'none';
-                window.location.reload();
-            }
-        });
+        // // Lắng nghe sự kiện và thực hiện hành động
+        // window.addEventListener('devtoolschange', event => {
+        //     if (event.detail.isOpen) {
+        //         // Hide body immediately for instant effect
+        //         document.body.style.display = 'none';
+        //         window.location.reload();
+        //     }
+        // });
     </script>
 </head>
 
