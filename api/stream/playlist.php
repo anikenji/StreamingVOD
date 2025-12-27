@@ -53,16 +53,120 @@ if (!$video || $video['status'] !== 'completed') {
     exit;
 }
 
-// Check if this is fMP4 (has init.mp4)
+// Path definitions
 $hlsDir = HLS_OUTPUT_DIR . '/' . $videoId;
+$dashManifestPath = $hlsDir . '/manifest.mpd';
 $playlistPath = $hlsDir . '/video.m3u8';
 $initPath = $hlsDir . '/init.mp4';
+
+// ==================== FORMAT SELECTION ====================
+// Support explicit format parameter for client-controlled format selection
+// - format=dash: Force DASH (for PC/Android - AV1 quality)
+// - format=hls: Force HLS (for iOS/Safari fallback)
+// - no format: Auto-detect based on availability
+
+$requestedFormat = $_GET['format'] ?? '';
+$hasHLS = file_exists($playlistPath);
+$hasDASH = file_exists($dashManifestPath);
+
+// Determine which format to serve
+$serveDASH = false;
+if ($requestedFormat === 'dash' && $hasDASH) {
+    $serveDASH = true;
+} elseif ($requestedFormat === 'hls' && $hasHLS) {
+    $serveDASH = false;
+} elseif ($hasDASH && !$hasHLS) {
+    // DASH-only video
+    $serveDASH = true;
+}
+
+// ==================== DASH HANDLING ====================
+if ($serveDASH) {
+    $segment = $_GET['segment'] ?? '';
+
+    if (empty($segment)) {
+        // Serve the DASH manifest with rewritten segment URLs
+        header('Content-Type: application/dash+xml');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Access-Control-Expose-Headers: Content-Length, Content-Range');
+
+        $content = file_get_contents($dashManifestPath);
+
+        // Construct proxy base URL - segments will be fetched via this endpoint
+        // Include format=dash to ensure segment requests are handled correctly
+        $proxyBase = BASE_URL . "api/stream/playlist.php?token=" . urlencode($token) . "&format=dash&segment=";
+
+        // Rewrite SegmentTemplate 'initialization' attribute
+        // From: initialization="init-stream$RepresentationID$.m4s"
+        // To:   initialization="https://.../playlist.php?token=XXX&amp;segment=init-stream$RepresentationID$.m4s"
+        $content = preg_replace_callback(
+            '/initialization="([^"]+)"/',
+            function ($matches) use ($proxyBase) {
+                // Use htmlspecialchars to escape & as &amp; for valid XML
+                return 'initialization="' . htmlspecialchars($proxyBase . $matches[1], ENT_XML1, 'UTF-8') . '"';
+            },
+            $content
+        );
+
+        // Rewrite SegmentTemplate 'media' attribute
+        // From: media="chunk-stream$RepresentationID$-$Number%05d$.m4s"
+        // To:   media="https://.../playlist.php?token=XXX&amp;segment=chunk-stream$RepresentationID$-$Number%05d$.m4s"
+        $content = preg_replace_callback(
+            '/media="([^"]+)"/',
+            function ($matches) use ($proxyBase) {
+                // Use htmlspecialchars to escape & as &amp; for valid XML
+                return 'media="' . htmlspecialchars($proxyBase . $matches[1], ENT_XML1, 'UTF-8') . '"';
+            },
+            $content
+        );
+
+        echo $content;
+        exit;
+    } else {
+        // Serve DASH segment (init.m4s, chunk-*.m4s)
+        $filename = basename($segment); // Security: prevent path traversal
+        $filePath = $hlsDir . '/' . $filename;
+
+        if (!file_exists($filePath)) {
+            http_response_code(404);
+            die('Segment not found: ' . htmlspecialchars($filename));
+        }
+
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+        // Set appropriate MIME type
+        if ($ext === 'mpd') {
+            header('Content-Type: application/dash+xml');
+        } elseif ($ext === 'm4s') {
+            // Init segments need video/mp4, media segments use video/iso.segment
+            if (strpos($filename, 'init-') === 0) {
+                header('Content-Type: video/mp4');
+            } else {
+                header('Content-Type: video/iso.segment');
+            }
+        } elseif ($ext === 'mp4') {
+            header('Content-Type: video/mp4');
+        } else {
+            header('Content-Type: application/octet-stream');
+        }
+
+        header('Cache-Control: public, max-age=3600');
+        header('Content-Length: ' . filesize($filePath));
+        header('Access-Control-Expose-Headers: Content-Length, Content-Range');
+
+        readfile($filePath);
+        exit;
+    }
+}
+
+// ==================== HLS HANDLING ====================
+// Check if HLS playlist exists
 $isFmp4 = file_exists($initPath);
 
 if (!file_exists($playlistPath)) {
     http_response_code(404);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Playlist not found']);
+    echo json_encode(['error' => 'Playlist not found (no HLS or DASH manifest)']);
     exit;
 }
 

@@ -67,7 +67,8 @@ class FFmpegEncoder
     }
 
     /**
-     * Build FFmpeg command for HLS encoding (source resolution)
+     * Build FFmpeg command for video encoding
+     * Supports: DASH + HLS (for modern codecs), HLS-only (for H.264)
      * Includes hardsub support for ASS/SSA subtitles
      */
     private function buildFFmpegCommand($profile, $outputDir)
@@ -90,38 +91,35 @@ class FFmpegEncoder
         // Check video codec for compatibility
         $videoCodec = $this->detectVideoCodec();
 
-        // AV1 requires re-encoding (JWPlayer doesn't support AV1)
-        $requiresReencode = $videoCodec ? $this->requiresReencode($videoCodec) : false;
+        // Check if codec should use DASH (AV1, VP9 - now supported by Shaka Player)
+        $useDash = $videoCodec ? $this->shouldUseDash($videoCodec) : false;
 
-        // HEVC/H.265 can use fMP4 stream copy (JWPlayer supports HEVC)
+        // Check if codec requires fMP4 segments for HLS (HEVC)
         $requiresFmp4 = $videoCodec ? $this->requiresFmp4Segments($videoCodec) : false;
 
         // Determine effective mode
         $useCopy = false; // Default to encode
 
-        if ($requiresReencode) {
-            // AV1 codec detected - must re-encode to H.264 for JWPlayer compatibility
-            logMessage("Detected codec '{$videoCodec}' is not supported by JWPlayer. Forcing re-encode to H.264.", 'INFO');
-            $useCopy = false;
+        if ($useDash) {
+            // AV1/VP9 detected - use DASH for Shaka Player native support
+            logMessage("Detected codec '{$videoCodec}' - using DASH output for Shaka Player.", 'INFO');
+            $useCopy = true; // Stream copy for DASH
         } elseif ($encodeType === 'copy') {
             $useCopy = true;
             if ($requiresFmp4) {
-                logMessage("Stream copy mode: Detected codec '{$videoCodec}' requires fMP4 segments for HLS compatibility.", 'INFO');
+                logMessage("Stream copy mode: Detected codec '{$videoCodec}' requires fMP4 segments.", 'INFO');
             }
         } elseif ($encodeType === 'auto') {
             // Auto mode: Use copy if NO subtitles, otherwise encode (to burn subs)
             $useCopy = !$hasSubtitle;
             if ($useCopy && $requiresFmp4) {
-                logMessage("Auto mode: Detected codec '{$videoCodec}'. Using stream copy with fMP4 segments.", 'INFO');
+                logMessage("Auto mode: Detected codec '{$videoCodec}'. Using stream copy with fMP4.", 'INFO');
             }
         }
         // If 'encode', useCopy remains false
 
         if ($hasSubtitle) {
-            if ($useCopy) {
-                logMessage("Warning: Hardsub/Subtitles cannot be burned in 'stream copy' mode for video {$this->videoId}", 'WARNING');
-            } else {
-                // For embedded subtitles (MKV with ASS/SSA), use subtitles filter
+            if (!$useCopy) {
                 // Need to escape path for FFmpeg filter (use forward slashes and escape colons/backslashes)
                 $escapedInputPath = str_replace('\\', '/', $this->inputPath);
                 $escapedInputPath = str_replace(':', '\\:', $escapedInputPath);
@@ -129,82 +127,167 @@ class FFmpegEncoder
                 logMessage("Hardsub enabled for video {$this->videoId}", 'INFO');
             }
         } else {
-            if ($useCopy && !$requiresFmp4 && !$requiresReencode) {
+            if ($useCopy && !$useDash && !$requiresFmp4) {
                 logMessage("Auto mode: No subtitles detected. Using 'stream copy' for efficiency.", 'INFO');
             }
         }
 
-        // Build command
+        // Build command based on streaming method
         if ($useCopy) {
-            // Stream Copy Mode
-            if ($requiresFmp4) {
-                // Use fMP4 segments for H.265/AV1 compatibility
-                // Note: init.mp4 uses relative filename only - FFmpeg places it with the m3u8
-                // Using full path in hls_fmp4_init_filename causes EXT-X-MAP:URI to have full path which breaks playback
-                $cmd = sprintf(
-                    '"%s" -i "%s" ' .
-                    '-c:v copy -c:a copy ' .
-                    '-f hls ' .
-                    '-hls_time %d -hls_playlist_type %s ' .
-                    '-hls_segment_type fmp4 ' .
-                    '-hls_fmp4_init_filename init.mp4 ' .
-                    '-hls_segment_filename "%s\\seg_%%04d.m4s" ' .
-                    '"%s\\video.m3u8" ' .
-                    '-y',
-                    $ffmpegPath,
-                    $inputPath,
-                    HLS_SEGMENT_DURATION,
-                    HLS_PLAYLIST_TYPE,
-                    $outputDirWin,
-                    $outputDirWin
-                );
+            if ($useDash) {
+                // DASH mode for AV1/VP9 (Shaka Player native support)
+                $cmd = $this->buildDashCommand($ffmpegPath, $inputPath, $outputDirWin);
+            } elseif ($requiresFmp4) {
+                // fMP4 HLS mode for HEVC
+                $cmd = $this->buildFmp4HlsCommand($ffmpegPath, $inputPath, $outputDirWin);
             } else {
-                // Use TS segments for H.264 (standard)
-                $cmd = sprintf(
-                    '"%s" -i "%s" ' .
-                    '-c:v copy -c:a copy ' .
-                    '-hls_time %d -hls_playlist_type %s ' .
-                    '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
-                    '-f hls "%s\\video.m3u8" ' .
-                    '-y',
-                    $ffmpegPath,
-                    $inputPath,
-                    HLS_SEGMENT_DURATION,
-                    HLS_PLAYLIST_TYPE,
-                    $outputDirWin,
-                    $outputDirWin
-                );
+                // Standard TS HLS mode for H.264
+                $cmd = $this->buildTsHlsCommand($ffmpegPath, $inputPath, $outputDirWin);
             }
         } else {
-            // Re-encode Mode
-            $cmd = sprintf(
-                '"%s" -i "%s" ' .
-                '-c:v libx264 -preset %s ' .
-                '%s ' . // Subtitle filter (if any)
-                '-b:v %s -maxrate %s -bufsize %s ' .
-                '-g 48 -keyint_min 48 -sc_threshold 0 ' .
-                '-c:a aac -b:a %s -ar 48000 ' .
-                '-hls_time %d -hls_playlist_type %s ' .
-                '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
-                '-f hls "%s\\video.m3u8" ' .
-                '-y',
-                $ffmpegPath,
-                $inputPath,
-                $profile['preset'],
-                $subtitleFilter,
-                $profile['video_bitrate'],
-                $maxRate,
-                $bufSize,
-                $profile['audio_bitrate'],
-                HLS_SEGMENT_DURATION,
-                HLS_PLAYLIST_TYPE,
-                $outputDirWin,
-                $outputDirWin
-            );
+            // Re-encode Mode - always output to HLS with TS segments (H.264 output)
+            $cmd = $this->buildReencodeCommand($ffmpegPath, $inputPath, $outputDirWin, $profile, $subtitleFilter, $maxRate, $bufSize);
         }
 
         return $cmd;
     }
+
+    /**
+     * Build DASH command for AV1/VP9 codecs
+     * Creates DASH manifest with fMP4 segments
+     * ALSO generates HLS fallback (re-encode to H.264) for iOS/Safari
+     */
+    private function buildDashCommand($ffmpegPath, $inputPath, $outputDirWin)
+    {
+        // IMPORTANT: Use forward slashes for FFmpeg paths to avoid escape sequence issues
+        // (e.g., \v becomes vertical tab, \n becomes newline)
+        $ffmpegPathSafe = str_replace('\\', '/', $ffmpegPath);
+        $inputPathSafe = str_replace('\\', '/', $inputPath);
+        $outputDirSafe = str_replace('\\', '/', $outputDirWin);
+
+        // Get encoding profile for HLS fallback
+        $profile = getEncodingProfile();
+
+        // Combined command: DASH (stream copy) + HLS fallback (re-encode to H.264)
+        // Uses multiple outputs in single FFmpeg call
+        $cmd = '"' . $ffmpegPathSafe . '" -i "' . $inputPathSafe . '" ' .
+            // Output 1: DASH stream copy (AV1/VP9 native)
+            '-map 0:v:0 -map 0:a:0 ' .
+            '-c:v copy -c:a copy ' .
+            '-f dash ' .
+            '-seg_duration ' . HLS_SEGMENT_DURATION . ' ' .
+            '"' . $outputDirSafe . '/manifest.mpd" ' .
+            // Output 2: HLS fallback (re-encode to H.264 for iOS/Safari)
+            '-map 0:v:0 -map 0:a:0 ' .
+            '-c:v libx264 -preset ' . $profile['preset'] . ' ' .
+            '-b:v ' . $profile['video_bitrate'] . ' ' .
+            '-maxrate ' . $profile['max_bitrate'] . ' ' .
+            '-bufsize ' . $profile['buffer_size'] . ' ' .
+            '-g 48 -keyint_min 48 -sc_threshold 0 ' .
+            '-c:a aac -b:a ' . $profile['audio_bitrate'] . ' -ar 48000 ' .
+            '-hls_time ' . HLS_SEGMENT_DURATION . ' -hls_playlist_type ' . HLS_PLAYLIST_TYPE . ' ' .
+            '-hls_segment_filename "' . $outputDirSafe . '/seg_%04d.ts" ' .
+            '-f hls "' . $outputDirSafe . '/video.m3u8" ' .
+            '-y';
+
+        logMessage("Using DASH + HLS fallback for video {$this->videoId}", 'INFO');
+        logMessage("Dual output command: $cmd", 'DEBUG');
+        return $cmd;
+    }
+
+    /**
+     * Build fMP4 HLS command for HEVC streams
+     */
+    private function buildFmp4HlsCommand($ffmpegPath, $inputPath, $outputDirWin)
+    {
+        $cmd = sprintf(
+            '"%s" -i "%s" ' .
+            '-c:v copy -c:a copy ' .
+            '-f hls ' .
+            '-hls_time %d -hls_playlist_type %s ' .
+            '-hls_segment_type fmp4 ' .
+            '-hls_fmp4_init_filename init.mp4 ' .
+            '-hls_segment_filename "%s\\seg_%%04d.m4s" ' .
+            '"%s\\video.m3u8" ' .
+            '-y',
+            $ffmpegPath,
+            $inputPath,
+            HLS_SEGMENT_DURATION,
+            HLS_PLAYLIST_TYPE,
+            $outputDirWin,
+            $outputDirWin
+        );
+
+        return $cmd;
+    }
+
+    /**
+     * Build standard TS HLS command for H.264 streams
+     */
+    private function buildTsHlsCommand($ffmpegPath, $inputPath, $outputDirWin)
+    {
+        $cmd = sprintf(
+            '"%s" -i "%s" ' .
+            '-c:v copy -c:a copy ' .
+            '-hls_time %d -hls_playlist_type %s ' .
+            '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
+            '-f hls "%s\\video.m3u8" ' .
+            '-y',
+            $ffmpegPath,
+            $inputPath,
+            HLS_SEGMENT_DURATION,
+            HLS_PLAYLIST_TYPE,
+            $outputDirWin,
+            $outputDirWin
+        );
+
+        return $cmd;
+    }
+
+    /**
+     * Build re-encode command (H.264 output with TS segments)
+     */
+    private function buildReencodeCommand($ffmpegPath, $inputPath, $outputDirWin, $profile, $subtitleFilter, $maxRate, $bufSize)
+    {
+        $cmd = sprintf(
+            '"%s" -i "%s" ' .
+            '-c:v libx264 -preset %s ' .
+            '%s ' . // Subtitle filter (if any)
+            '-b:v %s -maxrate %s -bufsize %s ' .
+            '-g 48 -keyint_min 48 -sc_threshold 0 ' .
+            '-c:a aac -b:a %s -ar 48000 ' .
+            '-hls_time %d -hls_playlist_type %s ' .
+            '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
+            '-f hls "%s\\video.m3u8" ' .
+            '-y',
+            $ffmpegPath,
+            $inputPath,
+            $profile['preset'],
+            $subtitleFilter,
+            $profile['video_bitrate'],
+            $maxRate,
+            $bufSize,
+            $profile['audio_bitrate'],
+            HLS_SEGMENT_DURATION,
+            HLS_PLAYLIST_TYPE,
+            $outputDirWin,
+            $outputDirWin
+        );
+
+        return $cmd;
+    }
+
+    /**
+     * Check if codec should use DASH output (for native AV1/VP9 support)
+     * Now enabled for Shaka Player which supports DASH natively
+     */
+    private function shouldUseDash($codec)
+    {
+        // Shaka Player supports DASH natively - enable for AV1/VP9
+        $dashCodecs = ['av1', 'vp9', 'vp09'];
+        return in_array($codec, $dashCodecs);
+    }
+
 
     /**
      * Detect if video has subtitle streams
@@ -301,16 +384,14 @@ class FFmpegEncoder
     }
 
     /**
-     * Check if the video codec requires re-encoding for JWPlayer compatibility
-     * Currently no codecs require forced re-encoding - we use fMP4 for modern codecs
+     * Check if the video codec requires re-encoding for player compatibility
+     * With Shaka Player, AV1/VP9 can use DASH natively (no re-encoding needed)
      */
     private function requiresReencode($codec)
     {
-        // AV1 and VP9 require re-encoding to H.264 because:
-        // - JWPlayer doesn't support AV1 in HLS
-        // - VP9 is not supported in HLS standard (Apple never added support)
-        // HEVC can use fMP4 stream copy (JWPlayer supports HEVC with fMP4)
-        $unsupportedCodecs = ['av1', 'vp9', 'vp09'];
+        // Shaka Player supports AV1/VP9 via DASH - no re-encoding needed
+        // Only truly unsupported codecs would go here
+        $unsupportedCodecs = [];
         return in_array($codec, $unsupportedCodecs);
     }
 

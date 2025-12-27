@@ -1,0 +1,632 @@
+/**
+ * Shaka Player Netflix-Style Custom Skin
+ * Ported from JWPlayer styles with modern adaptations
+ */
+
+/* ==================== BASE STYLES ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body.shaka-embed {
+    background: #000;
+    font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ==================== PLAYER CONTAINER ==================== */
+.shaka-player-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    background: #000;
+    overflow: hidden;
+}
+
+.shaka-player-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+/* Hide cursor when controls are hidden (like Netflix) */
+.shaka-player-container {
+    cursor: none;
+}
+
+.shaka-player-container.show-controls,
+.shaka-player-container.paused {
+    cursor: default;
+}
+
+/* ==================== CONTROLS OVERLAY ==================== */
+.shaka-controls-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
+    padding: 60px 20px 15px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+}
+
+/* Only show controls via JavaScript class (not hover - for proper timeout) */
+.shaka-player-container.show-controls .shaka-controls-overlay,
+.shaka-player-container.paused .shaka-controls-overlay {
+    opacity: 1;
+}
+
+/* ==================== PROGRESS BAR ==================== */
+.shaka-progress-container {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    margin-bottom: 12px;
+    transition: height 0.2s ease;
+}
+
+.shaka-progress-container:hover {
+    height: 8px;
+}
+
+.shaka-progress-buffered {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+.shaka-progress-played {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #e50914;
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+.shaka-progress-handle {
+    position: absolute;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    background: #e50914;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.shaka-progress-container:hover .shaka-progress-handle {
+    opacity: 1;
+}
+
+/* ==================== CONTROL BAR ==================== */
+.shaka-control-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.shaka-control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==================== BUTTONS ==================== */
+.shaka-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: transform 0.15s ease, background 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shaka-btn:hover {
+    transform: scale(1.15);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.shaka-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+.shaka-btn-play svg {
+    width: 28px;
+    height: 28px;
+}
+
+/* ==================== TIME DISPLAY ==================== */
+.shaka-time-display {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 400;
+    white-space: nowrap;
+    user-select: none;
+}
+
+/* ==================== VOLUME CONTROL ==================== */
+.shaka-volume-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.shaka-volume-slider-container {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.2s ease;
+}
+
+.shaka-volume-container:hover .shaka-volume-slider-container {
+    width: 70px;
+}
+
+.shaka-volume-slider {
+    width: 70px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+}
+
+.shaka-volume-level {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #fff;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+/* ==================== CENTER PLAY BUTTON ==================== */
+.shaka-center-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.15s ease;
+    z-index: 5;
+}
+
+.shaka-player-container.paused .shaka-center-play {
+    opacity: 1;
+}
+
+.shaka-center-play:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.shaka-center-play svg {
+    width: 40px;
+    height: 40px;
+    fill: #fff;
+    margin-left: 5px;
+}
+
+/* ==================== SKIP BUTTONS ==================== */
+.shaka-skip-button {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    /* Subtle dark glass - light tint for visibility */
+    background: linear-gradient(135deg,
+            rgba(0, 0, 0, 0.35) 0%,
+            rgba(0, 0, 0, 0.25) 50%,
+            rgba(0, 0, 0, 0.3) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    color: #fff;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    /* Subtle border for visibility on any background */
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    outline: 1px solid rgba(0, 0, 0, 0.15);
+    display: none;
+    transition: all 0.4s ease;
+    z-index: 20;
+    /* Soft shadow for subtle depth */
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(0, 0, 0, 0.1),
+        inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.shaka-skip-button:hover {
+    background: linear-gradient(135deg,
+            rgba(50, 50, 50, 0.8) 0%,
+            rgba(70, 70, 70, 0.6) 50%,
+            rgba(50, 50, 50, 0.7) 100%);
+    border-color: rgba(0, 0, 0, 0.4);
+    outline-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+    /* Enhanced glow on hover */
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(0, 0, 0, 0.3),
+        0 0 30px rgba(0, 0, 0, 0.4),
+        0 0 60px rgba(120, 200, 255, 0.15),
+        inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+.shaka-skip-button.visible {
+    display: block;
+    animation: glassGrowIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Fade out animation when hiding */
+.shaka-skip-button.fade-out {
+    animation: glassSlideOut 0.4s ease forwards;
+    pointer-events: none;
+}
+
+/* Pulsing glow animation */
+.shaka-skip-button.visible:not(.fade-out)::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 15px;
+    background: linear-gradient(45deg,
+            rgba(120, 200, 255, 0.3),
+            rgba(255, 255, 255, 0.15),
+            rgba(120, 200, 255, 0.3));
+    z-index: -1;
+    animation: pulseGlow 2s ease-in-out infinite;
+    filter: blur(10px);
+}
+
+@keyframes glassGrowIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateX(20px);
+        filter: blur(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateX(0);
+        filter: blur(0);
+    }
+}
+
+@keyframes glassSlideOut {
+    from {
+        opacity: 1;
+        transform: scale(1) translateX(0);
+        filter: blur(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(0.9) translateX(30px);
+        filter: blur(5px);
+    }
+}
+
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.03);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================== LOADING SPINNER ==================== */
+.shaka-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #e50914;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: none;
+    z-index: 15;
+}
+
+.shaka-player-container.buffering .shaka-spinner {
+    display: block;
+}
+
+.shaka-player-container.buffering .shaka-center-play {
+    opacity: 0;
+}
+
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* ==================== RESUME MODAL ==================== */
+/* Liquid glass blur backdrop - blocks all interaction */
+.shaka-resume-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Liquid glass effect */
+    background: linear-gradient(135deg,
+            rgba(0, 0, 0, 0.4) 0%,
+            rgba(0, 0, 0, 0.3) 50%,
+            rgba(0, 0, 0, 0.35) 100%);
+    backdrop-filter: blur(15px) saturate(120%);
+    -webkit-backdrop-filter: blur(15px) saturate(120%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 99;
+    display: none;
+    /* Block all interaction */
+    pointer-events: none;
+}
+
+.shaka-resume-backdrop.active {
+    display: block;
+    opacity: 1;
+    /* Enable pointer events to block clicks on player */
+    pointer-events: all;
+    cursor: default;
+}
+
+.shaka-resume-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 35px 50px;
+    border-radius: 12px;
+    text-align: center;
+    z-index: 100;
+    display: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.shaka-resume-modal.active {
+    display: block;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.shaka-resume-modal h3 {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.shaka-resume-modal p {
+    color: #bbb;
+    font-size: 15px;
+    margin-bottom: 25px;
+}
+
+.shaka-resume-modal .time {
+    color: #e50914;
+    font-weight: bold;
+    font-size: 17px;
+}
+
+.shaka-modal-btns {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.shaka-modal-btn {
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.shaka-modal-btn.primary {
+    background: #e50914;
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+}
+
+.shaka-modal-btn.primary:hover {
+    background: #f40612;
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.5);
+}
+
+.shaka-modal-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.shaka-modal-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+/* ==================== STATS OVERLAY ==================== */
+.shaka-stats-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 100;
+    max-width: 400px;
+    display: none;
+}
+
+.shaka-stats-overlay.visible {
+    display: block;
+}
+
+.shaka-stats-overlay strong {
+    color: #e50914;
+}
+
+/* ==================== SETTINGS MENU ==================== */
+.shaka-settings-menu {
+    position: absolute;
+    bottom: 70px;
+    right: 20px;
+    background: rgba(20, 20, 20, 0.95);
+    border-radius: 8px;
+    padding: 10px 0;
+    min-width: 200px;
+    display: none;
+    z-index: 50;
+}
+
+.shaka-settings-menu.active {
+    display: block;
+}
+
+.shaka-settings-item {
+    padding: 10px 20px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.shaka-settings-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.shaka-settings-item .value {
+    color: #888;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+    .shaka-controls-overlay {
+        padding: 40px 12px 10px;
+    }
+
+    .shaka-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .shaka-time-display {
+        font-size: 11px;
+    }
+
+    .shaka-center-play {
+        width: 60px;
+        height: 60px;
+    }
+
+    .shaka-center-play svg {
+        width: 30px;
+        height: 30px;
+    }
+
+    .shaka-skip-button {
+        bottom: 80px;
+        right: 10px;
+        padding: 10px 16px;
+        font-size: 12px;
+    }
+}
+
+/* ==================== AUTO-HIDE CURSOR ==================== */
+/* Hide cursor when controls are hidden (like Netflix) */
+.shaka-player-container:not(.show-controls):not(.paused) {
+    cursor: none;
+}
+
+.shaka-player-container:not(.show-controls):not(.paused) video {
+    cursor: none;
+}
+
+/* Keep cursor visible when controls are shown */
+.shaka-player-container.show-controls,
+.shaka-player-container.paused {
+    cursor: default;
+}
