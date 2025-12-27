@@ -9,6 +9,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/FFmpegEncoder.php';
+require_once __DIR__ . '/../includes/ChapterExtractor.php';
 
 // Check if running from CLI
 if (php_sapi_name() !== 'cli') {
@@ -68,6 +69,17 @@ function processJob($job, $db)
     // Update video status to processing if not already
     $db->execute("UPDATE videos SET status = 'processing', started_at = NOW() 
                   WHERE id = ? AND status = 'pending'", [$videoId]);
+
+    // Extract chapter markers (OP/ED) from source file if available
+    // Only fills empty fields, doesn't override existing values
+    try {
+        $extracted = ChapterExtractor::extractAndUpdateDatabase($videoId, $inputPath, $db);
+        if ($extracted) {
+            echo "[" . date('Y-m-d H:i:s') . "] Auto-detected OP/ED chapters for $videoId\n";
+        }
+    } catch (Exception $e) {
+        echo "[" . date('Y-m-d H:i:s') . "] Chapter extraction failed: " . $e->getMessage() . "\n";
+    }
 
     // Create encoder and process
     $encoder = new FFmpegEncoder($videoId, $inputPath);
