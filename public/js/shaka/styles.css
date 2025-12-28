@@ -85,17 +85,8 @@ body.shaka-embed {
     bottom: 0;
     left: 0;
     right: 0;
-    /* Smooth gradient fade - NO backdrop-filter to avoid hard edge */
-    background: linear-gradient(to top,
-            rgba(0, 0, 0, 0.7) 0%,
-            rgba(0, 0, 0, 0.55) 15%,
-            rgba(0, 0, 0, 0.4) 30%,
-            rgba(0, 0, 0, 0.25) 45%,
-            rgba(0, 0, 0, 0.12) 60%,
-            rgba(0, 0, 0, 0.05) 75%,
-            rgba(0, 0, 0, 0.01) 90%,
-            transparent 100%);
-    /* NO backdrop-filter - it creates hard edge */
+    /* Transparent - no background */
+    background: transparent;
     padding: 60px 20px 15px;
     opacity: 0;
     transition: opacity var(--transition-smooth);
@@ -463,35 +454,44 @@ body.shaka-embed {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-/* Rainbow glow for skip button */
+/* Rainbow glow for skip button - appears on hover */
 .shaka-skip-button::before {
     content: '';
     position: absolute;
-    top: -3px;
-    left: -3px;
-    right: -3px;
-    bottom: -3px;
-    border-radius: 33px;
-    background: linear-gradient(135deg,
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 32px;
+    background: conic-gradient(from 0deg,
             var(--rainbow-1),
+            var(--rainbow-2),
             var(--rainbow-3),
+            var(--rainbow-4),
             var(--rainbow-5),
+            var(--rainbow-6),
             var(--rainbow-1));
-    background-size: 300% 300%;
-    animation: rainbowShimmer 4s ease infinite;
-    opacity: 0.5;
+    opacity: 0;
     z-index: -1;
-    filter: blur(6px);
+    /* Slower fade-in for glow */
+    transition: opacity 0.5s ease-out;
+    filter: blur(4px);
 }
 
 .shaka-skip-button:hover {
-    transform: scale(var(--grow-scale));
     background: var(--glass-bg-hover);
     border-color: var(--glass-border-hover);
+    /* Fade-in glow effect */
     box-shadow:
         0 8px 30px rgba(0, 0, 0, 0.4),
-        0 0 40px rgba(255, 255, 255, 0.1),
+        0 0 25px rgba(255, 255, 255, 0.15),
+        0 0 50px rgba(255, 255, 255, 0.1),
         inset 0 1px 2px rgba(255, 255, 255, 0.2);
+    animation-duration: 0.5s;
+}
+
+.shaka-skip-button:hover::before {
+    opacity: 0.6;
 }
 
 .shaka-skip-button.visible {
@@ -657,6 +657,7 @@ body.shaka-embed {
     color: rgba(255, 255, 255, 0.8);
     font-size: 15px;
     margin-bottom: 25px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .shaka-resume-modal .time {
@@ -681,8 +682,8 @@ body.shaka-embed {
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-smooth);
     border: 1.5px solid var(--glass-border);
+    /* Base transition - will be overridden by specific buttons */
 }
 
 .shaka-modal-btn.primary {
@@ -693,13 +694,18 @@ body.shaka-embed {
     box-shadow:
         0 4px 15px rgba(230, 57, 70, 0.4),
         inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    /* Fade-in-out transition for glow */
+    transition:
+        transform var(--transition-smooth),
+        box-shadow 0.4s ease-in-out;
 }
 
 .shaka-modal-btn.primary:hover {
     transform: scale(var(--grow-scale));
     box-shadow:
-        0 6px 25px rgba(230, 57, 70, 0.5),
-        0 0 30px rgba(255, 140, 0, 0.3);
+        0 6px 25px rgba(230, 57, 70, 0.6),
+        0 0 40px rgba(255, 140, 0, 0.4),
+        0 0 60px rgba(230, 57, 70, 0.25);
 }
 
 .shaka-modal-btn.secondary {
@@ -707,11 +713,19 @@ body.shaka-embed {
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     color: #fff;
+    /* Fade-in-out transition for glow */
+    transition:
+        transform var(--transition-smooth),
+        background var(--transition-smooth),
+        box-shadow 0.4s ease-in-out;
 }
 
 .shaka-modal-btn.secondary:hover {
     transform: scale(var(--grow-scale));
     background: var(--glass-bg-hover);
+    box-shadow:
+        0 0 20px rgba(255, 255, 255, 0.2),
+        0 0 40px rgba(255, 255, 255, 0.1);
 }
 
 /* ==================== STATS OVERLAY ==================== */
@@ -791,6 +805,24 @@ body.shaka-embed {
 
 .shaka-settings-item .value {
     color: rgba(255, 255, 255, 0.6);
+}
+
+/* Back button in submenu */
+.shaka-settings-item.shaka-settings-back {
+    justify-content: flex-start;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 5px;
+    padding-bottom: 12px;
+    font-weight: 600;
+}
+
+/* Active item (currently selected) */
+.shaka-settings-item.active {
+    color: var(--accent-orange);
+}
+
+.shaka-settings-item.active svg {
+    fill: var(--accent-orange);
 }
 
 /* ==================== RESPONSIVE ==================== */

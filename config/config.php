@@ -57,7 +57,7 @@ define('SESSION_NAME', 'HLS_SESSION');
 // ============================================
 // Stream Security Configuration
 // ============================================
-define('STREAM_SECRET_KEY', 'Tr5v8L2q9Xz1M4k7P0j3H6n9B5c2V8m1'); // Change this!
+define('STREAM_SECRET_KEY', 'c1c30b016bc857649def8b004f901ec7546936619f64771fd1da649b14d8c59f'); // Change this!
 define('STREAM_TOKEN_EXPIRY', 4 * 60 * 60); // 4 hours
 define('ALLOWED_EMBED_DOMAINS', ['anikenji.live', 'service.anikenji.live', 'localhost']);
 

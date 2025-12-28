@@ -615,35 +615,118 @@ class ShakaPlayerController {
         }
     }
 
-    buildSettingsMenu() {
+    buildSettingsMenu(submenu = null) {
         if (!this.settingsMenu) return;
 
         const tracks = this.player.getVariantTracks();
         const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-        let html = `
-            <div class="shaka-settings-item" data-action="speed">
-                <span>Speed</span>
-                <span class="value">${this.video.playbackRate}x</span>
-            </div>
-        `;
+        // Get current quality
+        const currentTrack = tracks.find(t => t.active);
+        const currentQuality = this.player.getConfiguration().abr.enabled
+            ? 'Auto'
+            : (currentTrack?.height ? `${currentTrack.height}p` : 'Auto');
 
-        // Quality options
-        const qualities = [...new Set(tracks.map(t => t.height))].sort((a, b) => b - a);
-        html += `
-            <div class="shaka-settings-item" data-action="quality">
-                <span>Quality</span>
-                <span class="value">Auto</span>
-            </div>
-        `;
+        let html = '';
+
+        if (submenu === 'speed') {
+            // Speed submenu
+            html = `
+                <div class="shaka-settings-item shaka-settings-back" data-action="back">
+                    <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                    <span>Speed</span>
+                </div>
+            `;
+            speeds.forEach(speed => {
+                const isActive = this.video.playbackRate === speed;
+                html += `
+                    <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-speed" data-value="${speed}">
+                        <span>${speed === 1 ? 'Normal' : speed + 'x'}</span>
+                        ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
+                    </div>
+                `;
+            });
+        } else if (submenu === 'quality') {
+            // Quality submenu
+            html = `
+                <div class="shaka-settings-item shaka-settings-back" data-action="back">
+                    <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                    <span>Quality</span>
+                </div>
+            `;
+
+            // Auto option
+            const isAuto = this.player.getConfiguration().abr.enabled;
+            html += `
+                <div class="shaka-settings-item ${isAuto ? 'active' : ''}" data-action="set-quality" data-value="auto">
+                    <span>Auto</span>
+                    ${isAuto ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
+                </div>
+            `;
+
+            // Quality options (unique heights, sorted descending)
+            const qualities = [...new Set(tracks.map(t => t.height))].filter(h => h).sort((a, b) => b - a);
+            qualities.forEach(height => {
+                const isActive = !isAuto && currentTrack?.height === height;
+                html += `
+                    <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-quality" data-value="${height}">
+                        <span>${height}p</span>
+                        ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
+                    </div>
+                `;
+            });
+        } else {
+            // Main menu
+            html = `
+                <div class="shaka-settings-item" data-action="speed">
+                    <span>Speed</span>
+                    <span class="value">${this.video.playbackRate === 1 ? 'Normal' : this.video.playbackRate + 'x'}</span>
+                </div>
+                <div class="shaka-settings-item" data-action="quality">
+                    <span>Quality</span>
+                    <span class="value">${currentQuality}</span>
+                </div>
+            `;
+        }
 
         this.settingsMenu.innerHTML = html;
 
         // Bind settings actions
         this.settingsMenu.querySelectorAll('.shaka-settings-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const action = item.dataset.action;
-                // TODO: Implement sub-menus for speed/quality selection
+                const value = item.dataset.value;
+
+                switch (action) {
+                    case 'speed':
+                        this.buildSettingsMenu('speed');
+                        break;
+                    case 'quality':
+                        this.buildSettingsMenu('quality');
+                        break;
+                    case 'back':
+                        this.buildSettingsMenu();
+                        break;
+                    case 'set-speed':
+                        this.video.playbackRate = parseFloat(value);
+                        this.buildSettingsMenu();
+                        break;
+                    case 'set-quality':
+                        if (value === 'auto') {
+                            // Enable ABR (auto quality)
+                            this.player.configure({ abr: { enabled: true } });
+                        } else {
+                            // Disable ABR and select specific quality
+                            this.player.configure({ abr: { enabled: false } });
+                            const targetTrack = tracks.find(t => t.height === parseInt(value));
+                            if (targetTrack) {
+                                this.player.selectVariantTrack(targetTrack, true);
+                            }
+                        }
+                        this.buildSettingsMenu();
+                        break;
+                }
             });
         });
     }
