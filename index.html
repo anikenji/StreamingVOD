@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="StreamingVOD - Professional HLS/DASH Video Streaming Platform with Adaptive Bitrate Encoding">
+    <meta name="keywords" content="video streaming, HLS, DASH, adaptive bitrate, FFmpeg, PHP, MySQL">
+    <meta name="author" content="StreamingVOD">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="StreamingVOD - Video Streaming Platform">
+    <meta property="og:description"
+        content="Professional video streaming platform with adaptive bitrate HLS/DASH encoding">
+    <meta property="og:type" content="website">
+
+    <title>StreamingVOD - Professional Video Streaming Platform</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">StreamingVOD</span>
+            </a>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#players">Players</a></li>
+                <li><a href="#codecs">Codecs</a></li>
+                <li><a href="#api">API</a></li>
+                <li><a href="#changelog">Updates</a></li>
+                <li><a href="https://github.com/AniKenji/StreamingVOD" class="nav-btn" target="_blank">GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-content">
+            <div class="hero-badge animate-fade-in">
+                <span class="badge-icon">🚀</span>
+                <span>Open Source Project</span>
+            </div>
+            <h1 class="hero-title animate-fade-in-up">
+                <span class="gradient-text">StreamingVOD</span>
+            </h1>
+            <h2 class="hero-subtitle animate-fade-in-up delay-1">
+                HLS/DASH Video Streaming Service
+            </h2>
+            <p class="hero-description animate-fade-in-up delay-2">
+                Professional video streaming platform with adaptive bitrate encoding,
+                built with PHP and MySQL. Features dual-player system with
+                <strong>Shaka Player (DASH)</strong> for PC/Android and
+                <strong>JWPlayer (HLS)</strong> for iOS.
+            </p>
+            <div class="hero-actions animate-fade-in-up delay-3">
+                <a href="https://github.com/AniKenji/StreamingVOD" class="btn btn-primary" target="_blank">
+                    <span class="btn-icon">📦</span>
+                    Get Started
+                </a>
+                <a href="#features" class="btn btn-secondary">
+                    <span class="btn-icon">✨</span>
+                    Explore Features
+                </a>
+            </div>
+            <div class="hero-stats animate-fade-in-up delay-4">
+                <div class="stat">
+                    <span class="stat-value">5GB</span>
+                    <span class="stat-label">Max Upload</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">Adaptive</span>
+                    <span class="stat-label">Bitrate</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">2</span>
+                    <span class="stat-label">Players</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-scroll">
+            <span>Scroll to explore</span>
+            <div class="scroll-indicator"></div>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="section features-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">✨ Features</span>
+                <h2 class="section-title">Powerful Capabilities</h2>
+                <p class="section-subtitle">Everything you need for professional video streaming</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card" data-animate>
+                    <div class="feature-icon">🔐</div>
+                    <h3>User Authentication</h3>
+                    <p>Secure registration and login system with enhanced security measures</p>
+                </div>
+                <div class="feature-card" data-animate>
+                    <div class="feature-icon">⬆️</div>
+                    <h3>Video Upload</h3>
+                    <p>Chunked upload support for large files up to 5GB</p>
+                </div>
+                <div class="feature-card" data-animate>
+                    <div class="feature-icon">🎬</div>
+                    <h3>Adaptive Bitrate</h3>
+                    <p>Automatic encoding to 360p, 720p, and 1080p with Stream Copy support</p>
+                </div>
+                <div class="feature-card" data-animate>
+                    <div class="feature-icon">📊</div>
+                    <h3>Real-time Progress</h3>
+                    <p>Live encoding progress tracking with polling API</p>
+                </div>
+                <div class="feature-card" data-animate>
+                    <div class="feature-icon">📱</div>
+                    <h3>Responsive Dashboard</h3>
+                    <p>Modern glassmorphism UI design that works on all devices</p>
+                </div>
+                <div class="feature-card" data-animate>
+                    <div class="feature-icon">🚀</div>
+                    <h3>Background Processing</h3>
+                    <p>Asynchronous video encoding with worker processes</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Video Enhancement Section -->
+    <section class="section enhancement-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">🎥 Video Enhancement</span>
+                <h2 class="section-title">Smart Features</h2>
+            </div>
+            <div class="enhancement-grid">
+                <div class="enhancement-card" data-animate>
+                    <div class="enhancement-icon">⏭️</div>
+                    <div class="enhancement-content">
+                        <h3>Skip Intro/Outro</h3>
+                        <p>Smart buttons to skip opening and ending sequences automatically</p>
+                    </div>
+                </div>
+                <div class="enhancement-card" data-animate>
+                    <div class="enhancement-icon">📖</div>
+                    <div class="enhancement-content">
+                        <h3>MKV Chapters Extractor</h3>
+                        <p>Auto-detect and extract chapter markers from MKV files</p>
+                    </div>
+                </div>
+                <div class="enhancement-card" data-animate>
+                    <div class="enhancement-icon">▶️</div>
+                    <div class="enhancement-content">
+                        <h3>Continue Watching</h3>
+                        <p>Resume playback from where you left off (cookie-based)</p>
+                    </div>
+                </div>
+                <div class="enhancement-card" data-animate>
+                    <div class="enhancement-icon">🔊</div>
+                    <div class="enhancement-content">
+                        <h3>Volume Memory</h3>
+                        <p>Remembers your preferred volume level across sessions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dual Player Section -->
+    <section id="players" class="section players-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">🎯 Dual Player System</span>
+                <h2 class="section-title">Best Player for Every Device</h2>
+                <p class="section-subtitle">Auto-detection ensures optimal playback experience</p>
+            </div>
+            <div class="players-comparison">
+                <div class="player-card shaka-card" data-animate>
+                    <div class="player-header">
+                        <div class="player-badge">DASH</div>
+                        <h3>Shaka Player</h3>
+                    </div>
+                    <div class="player-icon">💻</div>
+                    <ul class="player-features">
+                        <li>✓ PC & Android devices</li>
+                        <li>✓ Liquid Glass UI design</li>
+                        <li>✓ H.265/HEVC support</li>
+                        <li>✓ AV1/VP9 codecs</li>
+                        <li>✓ Better compression</li>
+                    </ul>
+                </div>
+                <div class="player-vs">
+                    <span>VS</span>
+                    <div class="player-auto">
+                        <span class="auto-icon">🔄</span>
+                        <span>Auto-detect</span>
+                    </div>
+                </div>
+                <div class="player-card jwplayer-card" data-animate>
+                    <div class="player-header">
+                        <div class="player-badge">HLS</div>
+                        <h3>JWPlayer</h3>
+                    </div>
+                    <div class="player-icon">📱</div>
+                    <ul class="player-features">
+                        <li>✓ iOS devices</li>
+                        <li>✓ Netflix-style skin</li>
+                        <li>✓ H.264/AVC fallback</li>
+                        <li>✓ Wide compatibility</li>
+                        <li>✓ Native iOS support</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Codec Section -->
+    <section id="codecs" class="section codecs-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">🎥 Codec Support</span>
+                <h2 class="section-title">Comprehensive Format Support</h2>
+            </div>
+            <div class="codecs-grid">
+                <div class="codec-card video-codec" data-animate>
+                    <div class="codec-header">
+                        <span class="codec-icon">🎬</span>
+                        <h3>Video Codecs</h3>
+                    </div>
+                    <div class="codec-list">
+                        <div class="codec-item">
+                            <span class="codec-name">H.264/AVC</span>
+                            <span class="codec-badge universal">Universal</span>
+                        </div>
+                        <div class="codec-item">
+                            <span class="codec-name">H.265/HEVC</span>
+                            <span class="codec-badge efficient">High Efficiency</span>
+                        </div>
+                        <div class="codec-item">
+                            <span class="codec-name">AV1</span>
+                            <span class="codec-badge modern">Modern</span>
+                        </div>
+                        <div class="codec-item">
+                            <span class="codec-name">VP9</span>
+                            <span class="codec-badge modern">Modern</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="codec-card audio-codec" data-animate>
+                    <div class="codec-header">
+                        <span class="codec-icon">🔊</span>
+                        <h3>Audio Codecs</h3>
+                    </div>
+                    <div class="codec-subsection">
+                        <h4 class="codec-subtitle">✅ Encode Support</h4>
+                        <div class="codec-list">
+                            <div class="codec-item">
+                                <span class="codec-name">AAC / OPUS / FLAC</span>
+                                <span class="codec-badge encode">Encode</span>
+                            </div>
+                            <div class="codec-item">
+                                <span class="codec-name">5.1 / 7.1 Surround</span>
+                                <span class="codec-badge encode">Encode</span>
+                            </div>
+                            <div class="codec-item">
+                                <span class="codec-name">Dolby Digital (AC3)</span>
+                                <span class="codec-badge encode">Encode</span>
+                            </div>
+                            <div class="codec-item">
+                                <span class="codec-name">Dolby Digital Plus (EAC3)</span>
+                                <span class="codec-badge encode">Encode</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="codec-subsection">
+                        <h4 class="codec-subtitle">📋 Stream Copy Only</h4>
+                        <p class="codec-note">Due to licensing restrictions</p>
+                        <div class="codec-list">
+                            <div class="codec-item">
+                                <span class="codec-name">Dolby Atmos</span>
+                                <span class="codec-badge passthrough">Passthrough</span>
+                            </div>
+                            <div class="codec-item">
+                                <span class="codec-name">DTS / DTS-HD</span>
+                                <span class="codec-badge passthrough">Passthrough</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Section -->
+    <section class="section security-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">🔒 Security</span>
+                <h2 class="section-title">Enterprise-Grade Protection</h2>
+            </div>
+            <div class="security-grid">
+                <div class="security-item" data-animate>
+                    <span class="security-icon">🔒</span>
+                    <div>
+                        <h4>Secure Streaming</h4>
+                        <p>Protected video delivery with signed URLs</p>
+                    </div>
+                </div>
+                <div class="security-item" data-animate>
+                    <span class="security-icon">🛡️</span>
+                    <div>
+                        <h4>CORS Support</h4>
+                        <p>Cross-origin resource sharing configuration</p>
+                    </div>
+                </div>
+                <div class="security-item" data-animate>
+                    <span class="security-icon">🔑</span>
+                    <div>
+                        <h4>Stream Secret Key</h4>
+                        <p>Token-based stream authentication</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- API Section -->
+    <section id="api" class="section api-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">📡 API</span>
+                <h2 class="section-title">RESTful API Endpoints</h2>
+            </div>
+            <div class="api-grid">
+                <div class="api-category" data-animate>
+                    <h3>🔐 Authentication</h3>
+                    <div class="api-endpoints">
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            <code>/api/auth/register.php</code>
+                        </div>
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            <code>/api/auth/login.php</code>
+                        </div>
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            <code>/api/auth/logout.php</code>
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            <code>/api/auth/check.php</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="api-category" data-animate>
+                    <h3>🎬 Videos</h3>
+                    <div class="api-endpoints">
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            <code>/api/videos/upload.php</code>
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            <code>/api/videos/list.php</code>
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            <code>/api/videos/detail.php?id={id}</code>
+                        </div>
+                        <div class="endpoint">
+                            <span class="method delete">DELETE</span>
+                            <code>/api/videos/delete.php?id={id}</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="api-category" data-animate>
+                    <h3>📊 Progress</h3>
+                    <div class="api-endpoints">
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            <code>/api/progress/poll.php?video_id={id}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="section tech-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">🛠️ Built With</span>
+                <h2 class="section-title">Technology Stack</h2>
+            </div>
+            <div class="tech-grid">
+                <div class="tech-item" data-animate>
+                    <span class="tech-icon">🐘</span>
+                    <span>PHP</span>
+                </div>
+                <div class="tech-item" data-animate>
+                    <span class="tech-icon">🗄️</span>
+                    <span>MySQL</span>
+                </div>
+                <div class="tech-item" data-animate>
+                    <span class="tech-icon">🎞️</span>
+                    <span>FFmpeg</span>
+                </div>
+                <div class="tech-item" data-animate>
+                    <span class="tech-icon">📺</span>
+                    <span>JWPlayer</span>
+                </div>
+                <div class="tech-item" data-animate>
+                    <span class="tech-icon">🎯</span>
+                    <span>Shaka Player</span>
+                </div>
+                <div class="tech-item" data-animate>
+                    <span class="tech-icon">🎨</span>
+                    <span>Glassmorphism</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Changelog Section -->
+    <section id="changelog" class="section changelog-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">📝 Changelog</span>
+                <h2 class="section-title">Latest Updates</h2>
+                <p class="section-subtitle">December 2025</p>
+            </div>
+            <div class="changelog-timeline">
+                <div class="changelog-item" data-animate>
+                    <div class="changelog-icon">🔧</div>
+                    <div class="changelog-content">
+                        <h4>Config Security</h4>
+                        <p>Remove config.php from tracking to protect sensitive data</p>
+                        <code>e51f152</code>
+                    </div>
+                </div>
+                <div class="changelog-item" data-animate>
+                    <div class="changelog-icon">🎨</div>
+                    <div class="changelog-content">
+                        <h4>Shaka Player Improvements</h4>
+                        <p>Liquid Glass UI design with modern glassmorphism</p>
+                        <code>bccfad1, 011c7dd</code>
+                    </div>
+                </div>
+                <div class="changelog-item" data-animate>
+                    <div class="changelog-icon">📖</div>
+                    <div class="changelog-content">
+                        <h4>MKV Chapter Support</h4>
+                        <p>Auto-detect chapters for OP/ED markers</p>
+                        <code>c2e3c5d, aea40da</code>
+                    </div>
+                </div>
+                <div class="changelog-item" data-animate>
+                    <div class="changelog-icon">🎬</div>
+                    <div class="changelog-content">
+                        <h4>Dual Player System</h4>
+                        <p>Shaka Player (DASH) for PC/Android, JWPlayer (HLS) for iOS</p>
+                        <code>d039c9d</code>
+                    </div>
+                </div>
+                <div class="changelog-item" data-animate>
+                    <div class="changelog-icon">🎥</div>
+                    <div class="changelog-content">
+                        <h4>Codec Enhancements</h4>
+                        <p>Support for H.265/HEVC, AV1, VP9 video codecs</p>
+                        <code>f5f97fa, ef52123</code>
+                    </div>
+                </div>
+                <div class="changelog-item" data-animate>
+                    <div class="changelog-icon">⏭️</div>
+                    <div class="changelog-content">
+                        <h4>Skip Intro/Outro</h4>
+                        <p>Netflix-style skip buttons for embed player</p>
+                        <code>ed6403a, 0ef8d0f</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section cta-section">
+        <div class="container">
+            <div class="cta-content" data-animate>
+                <h2>Ready to Stream?</h2>
+                <p>Get started with StreamingVOD and build your own video streaming platform</p>
+                <div class="cta-actions">
+                    <a href="https://github.com/AniKenji/StreamingVOD" class="btn btn-primary btn-large"
+                        target="_blank">
+                        <span class="btn-icon">📦</span>
+                        Clone Repository
+                    </a>
+                    <a href="https://github.com/AniKenji/StreamingVOD/blob/main/README.md"
+                        class="btn btn-secondary btn-large" target="_blank">
+                        <span class="btn-icon">📖</span>
+                        Read Documentation
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="logo-icon">🎬</span>
+                    <span class="logo-text">StreamingVOD</span>
+                </div>
+                <p class="footer-text">
+                    Professional HLS/DASH Video Streaming Platform
+                </p>
+                <div class="footer-links">
+                    <a href="https://github.com/AniKenji/StreamingVOD" target="_blank">GitHub</a>
+                    <a href="https://github.com/AniKenji/StreamingVOD/issues" target="_blank">Issues</a>
+                    <a href="https://github.com/AniKenji/StreamingVOD/blob/main/README.md"
+                        target="_blank">Documentation</a>
+                </div>
+                <p class="footer-copyright">
+                    © 2025 StreamingVOD. Built with ❤️
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+
+</html>
