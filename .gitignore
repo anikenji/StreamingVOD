@@ -5,7 +5,7 @@ vendor/
 # Environment variables
 .env
 # Ignore sensitive config files
-config/config.php
+!config/config.php
 # Do not ignore example files
 !config/config.example.php
 
