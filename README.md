@@ -1,16 +1,70 @@
-# HLS Streaming Service
+# StreamingVOD - HLS/DASH Video Streaming Service
 
-Professional video streaming platform with adaptive bitrate HLS encoding, built with PHP and MySQL.
+Professional video streaming platform with adaptive bitrate HLS/DASH encoding, built with PHP and MySQL. Features dual-player system with Shaka Player (DASH) for PC/Android and JWPlayer (HLS) for iOS.
 
-## Features
+## ✨ Features
 
-- 🔐 **User Authentication** - Secure registration and login system
+### Core Features
+- 🔐 **User Authentication** - Secure registration and login system with enhanced security
 - ⬆️ **Video Upload** - Chunked upload support for large files (up to 5GB)
-- 🎬 **Adaptive Bitrate Streaming** - Automatic encoding to 360p, 720p, and 1080p
+- 🎬 **Adaptive Bitrate Streaming** - Automatic encoding to 360p, 720p, and 1080p (Support Stream Copy, encoding MKV have Chapters and Subtitles) 
 - 📊 **Real-time Progress** - Live encoding progress tracking
-- 🎯 **JWPlayer Integration** - Embeddable video player with HLS support
 - 📱 **Responsive Dashboard** - Modern glassmorphism UI design
 - 🚀 **Background Processing** - Asynchronous video encoding
+
+### Dual Player System
+- 🎯 **Shaka Player (DASH)** - For PC/Android with Liquid Glass UI design
+- 📺 **JWPlayer (HLS)** - For iOS devices with Netflix-style skin
+- 🔄 **Auto-detection** - Automatically selects the best player based on device
+
+### Video Enhancement
+- ⏭️ **Skip Intro/Outro** - Smart buttons to skip opening and ending sequences
+- 📖 **MKV Chapters Extractor** - Auto-detect and extract chapter markers from MKV files
+- ▶️ **Continue Watching** - Resume playback from where you left off (cookie-based)
+- 🔊 **Volume Memory** - Remembers your preferred volume level
+
+### Video Codec Support
+## Stream Copy Only (HLS for every platform)
+- 🎥 **H.264/AVC** - Standard video codec support
+
+## Stream Copy + Encode (DASH + HLS Dual (Cost double storage))
+- 🎥 **H.265/HEVC** - Stream Copy DASH to better quality and smaller file size but can only play on PC/Android (Shaka Player), Encode HLS fallback to H.264/AVC for iOS devices (JWPlayer). High-efficiency video codec support for smaller file sizes.
+
+- 🎥 **AV1/VP9** - Stream Copy DASH to better quality and smaller file size but can only play on PC/Android (Shaka Player), Encode HLS fallback to H.264/AVC for iOS devices (JWPlayer). Modern video codec support for smaller file sizes with better quality (cost less storage).
+
+### Audio Codec Support
+## Encode Audio Codec Support (using ffmpeg so it's limited the codec)
+- AAC
+- OPUS
+- FLAC
+- 5.1
+- 7.1
+- Dolby Digital(AC3)
+- Dolby Digital Plus(EAC3)
+
+## Decode Audio Codec Support (using ffmpeg Stream Copy Without Re-Encode)
+- AAC
+- OPUS
+- FLAC
+- 5.1
+- 7.1
+- Dolby Atmos
+- DTS
+- DTS-HD
+- Dolby Digital(AC3)
+- Dolby Digital Plus(EAC3)
+- Dolby Digital Plus
+- Dolby Atmos
+
+### Security
+- 🔒 **Secure Streaming** - Protected video delivery with signed URLs
+- 🛡️ **CORS Support** - Cross-origin resource sharing configuration
+- 🔑 **Stream Secret Key** - Token-based stream authentication
+
+### API & Management
+- 🎬 **Movies Management API** - Full CRUD operations for video content
+- 📋 **Metadata Editor** - Edit video metadata including intro/outro timestamps
+- 📊 **Progress Tracking** - Real-time encoding progress via polling API
 
 ## Requirements
 
@@ -20,6 +74,7 @@ Professional video streaming platform with adaptive bitrate HLS encoding, built 
   - Apache or Nginx
 - **FFmpeg** - For video encoding
 - **JWPlayer License** - For video playback
+- **Shaka Player License** - For video playback
 
 ## Installation
 
@@ -40,8 +95,6 @@ Default admin credentials:
 - **Username:** admin
 - **Password:** admin123
 - ⚠️ **Important:** Change password after first login!
-
-### 2. Configuration
 
 ### 2. Configuration
 
@@ -285,5 +338,50 @@ Built with:
 - PHP
 - MySQL
 - FFmpeg
-- JWPlayer
-- Modern CSS (Glassmorphism)
+- JWPlayer (HLS streaming for iOS)
+- Shaka Player (DASH streaming for PC/Android)
+- Modern CSS (Glassmorphism & Liquid Glass UI)
+
+## 📝 Changelog
+
+### Latest Updates (December 2025)
+
+#### 🔧 Config Security
+- `e51f152` - Remove config.php from tracking to protect sensitive data
+
+#### 🎨 Shaka Player Improvements
+- `bccfad1` - Fixing Shaka Player function and UI
+- `011c7dd` - Liquids Glass UI Shaka Player - Modern glassmorphism design
+
+#### 📖 MKV Chapter Support
+- `c2e3c5d` - MKV Chapters extractor Fixed
+- `aea40da` - Add chapter extractor for auto-detect MKV chapters (OP/ED markers)
+
+#### 🎬 Dual Player System
+- `d039c9d` - Update Shaka Player (DASH) for PC/Android, JWPlayer (HLS) for iOS
+
+#### 🎥 Codec Enhancements
+- `f5f97fa` - Update support more video Codec (H.265/HEVC, AV1, VP9)
+- `ef52123` - Update FFmpeg with new features
+
+#### 🔐 Security Updates
+- `c1c3bd7` - Disable Register Modal, Update security method for embed player
+
+#### 🎨 UI/UX Improvements
+- `2384edd` - Re-design and code construction
+- `f3bf872` - Re-design JWPlayer's controller with Netflix-style skin
+
+#### 🔑 Authentication
+- `85642d2` - Update auth system
+
+#### ⏭️ Skip Intro/Outro Feature
+- `ed6403a` - Add Skip intro and outro button for embed player
+- `0ef8d0f` - Implement JWPlayer embed page with Netflix skin, secure streaming, continue watching, and skip intro/outro
+
+#### 📺 Enhanced Features
+- `7600105` - Add movies management API, streaming endpoints, security features, and UI improvements
+- `5b18130` - Enhanced embed player with continue watching, CORS, M3U8 copy button
+
+#### 🚀 Initial Release
+- `0ffd23c` - Initial commit: HLS Video Streaming Service with PHP/MySQL
+
