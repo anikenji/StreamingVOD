@@ -34,8 +34,23 @@ if (empty($referer) || !$refererValid) {
     exit('Access denied - invalid referer');
 }
 
-// CORS header
-header('Access-Control-Allow-Origin: *');
+// Strict CORS - Only allow configured origins
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = defined('ALLOWED_CORS_ORIGINS') ? ALLOWED_CORS_ORIGINS : [];
+
+// Validate origin against whitelist
+$originAllowed = false;
+foreach ($allowedOrigins as $allowed) {
+    if (strcasecmp($origin, $allowed) === 0) {
+        $originAllowed = true;
+        break;
+    }
+}
+
+if ($originAllowed && !empty($origin)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+}
 
 $videoId = $_GET['v'] ?? '';
 $filename = $_GET['f'] ?? '';

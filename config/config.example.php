@@ -101,7 +101,16 @@ ini_set('display_errors', 1);
 // CORS Configuration (if needed)
 // ============================================
 define('ENABLE_CORS', true);
-define('CORS_ORIGIN', '*'); // Change to specific domain in production
+define('CORS_ORIGIN', '*'); // Legacy - use ALLOWED_CORS_ORIGINS instead
+
+// Strict CORS Origins - Only these domains can embed/access streams
+// Add your domains here (without trailing slash)
+define('ALLOWED_CORS_ORIGINS', [
+    'https://your-domain.com',
+    'https://service.your-domain.com',
+    'http://localhost',
+    'http://127.0.0.1'
+]);
 
 // ============================================
 // Worker Configuration

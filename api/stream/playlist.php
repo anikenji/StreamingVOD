@@ -12,12 +12,35 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/security.php';
 require_once __DIR__ . '/../../includes/helpers.php';
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+// Strict CORS - Only allow configured origins
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = defined('ALLOWED_CORS_ORIGINS') ? ALLOWED_CORS_ORIGINS : [];
+
+// Validate origin against whitelist
+$originAllowed = false;
+foreach ($allowedOrigins as $allowed) {
+    if (strcasecmp($origin, $allowed) === 0) {
+        $originAllowed = true;
+        break;
+    }
+}
+
+if ($originAllowed && !empty($origin)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Vary: Origin');
+} else if (empty($origin)) {
+    // Same-origin requests (direct browser access) - allow for same-site embeds
+    // But do NOT send Access-Control-Allow-Origin header
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+    if ($originAllowed && !empty($origin)) {
+        http_response_code(204);
+    } else {
+        http_response_code(403);
+    }
     exit;
 }
 

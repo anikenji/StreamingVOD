@@ -110,10 +110,12 @@ $outroEnd = $video['outro_end'] ?? null;
 
         const threshold = 160;
 
-        // Skip devtools detection on iOS/Safari (false positives from toolbar)
+        // Skip devtools detection on mobile devices (false positives from dynamic toolbars)
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isAndroid = /Android/i.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        const skipDevtoolsCheck = isIOS || isSafari;
+        const isMobile = isIOS || isAndroid || /Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const skipDevtoolsCheck = isMobile || isSafari;
 
         const emitEvent = (isOpen, orientation) => {
             window.dispatchEvent(new CustomEvent('devtoolschange', {

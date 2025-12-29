@@ -880,6 +880,157 @@ body.shaka-embed {
     }
 }
 
+/* Mobile Portrait - Compact Control Bar */
+@media (max-width: 480px) {
+    .shaka-controls-overlay {
+        padding: 30px 8px 8px;
+    }
+
+    .shaka-control-bar {
+        gap: 2px;
+    }
+
+    .shaka-control-group {
+        gap: 2px;
+    }
+
+    /* Smaller buttons on mobile portrait */
+    .shaka-btn {
+        width: 32px;
+        height: 32px;
+        --btn-blur: 8px;
+    }
+
+    .shaka-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .shaka-btn-play {
+        width: 36px;
+        height: 36px;
+    }
+
+    .shaka-btn-play svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Hide PiP button on mobile portrait - less important */
+    .shaka-btn-pip {
+        display: none;
+    }
+
+    /* Hide volume slider on mobile portrait - use system volume */
+    .shaka-volume-slider-container {
+        display: none;
+    }
+
+    /* Compact time display */
+    .shaka-time-display {
+        font-size: 10px;
+        padding: 3px 6px;
+        white-space: nowrap;
+    }
+
+    /* Smaller center play */
+    .shaka-center-play {
+        width: 50px;
+        height: 50px;
+    }
+
+    .shaka-center-play svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    /* Smaller skip buttons */
+    .shaka-skip-button {
+        bottom: 70px;
+        right: 8px;
+        padding: 8px 12px;
+        font-size: 11px;
+        border-radius: 16px;
+    }
+
+    /* Smaller resume modal */
+    .shaka-resume-modal {
+        width: 90%;
+        max-width: 280px;
+        padding: 20px;
+        border-radius: 16px;
+    }
+
+    .shaka-resume-modal h3 {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+
+    .shaka-resume-modal p {
+        font-size: 13px;
+        margin-bottom: 18px;
+    }
+
+    .shaka-modal-btns {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .shaka-modal-btn {
+        padding: 10px 20px;
+        font-size: 13px;
+        width: 100%;
+    }
+
+    /* Settings menu compact */
+    .shaka-settings-menu {
+        bottom: 55px;
+        right: 8px;
+        min-width: 160px;
+        border-radius: 12px;
+    }
+
+    .shaka-settings-item {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+}
+
+/* Extra small mobile (portrait narrow) */
+@media (max-width: 360px) {
+
+    /* Hide rewind/forward buttons to make room */
+    .shaka-btn-rewind,
+    .shaka-btn-forward {
+        display: none;
+    }
+
+    .shaka-btn {
+        width: 30px;
+        height: 30px;
+    }
+
+    .shaka-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .shaka-btn-play {
+        width: 34px;
+        height: 34px;
+    }
+
+    .shaka-btn-play svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .shaka-time-display {
+        font-size: 9px;
+        padding: 2px 4px;
+    }
+}
+
 /* ==================== AUTO-HIDE CURSOR ==================== */
 .shaka-player-container:not(.show-controls):not(.paused) {
     cursor: none;
