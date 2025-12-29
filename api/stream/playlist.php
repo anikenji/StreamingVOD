@@ -331,7 +331,25 @@ if ($isFmp4) {
     exit;
 }
 
-// Standard TS playlist (no Master Playlist needed)
+// Standard TS playlist - serve Master Playlist if available (has BANDWIDTH/CODECS for Shaka Player)
+$masterPlaylistPath = $hlsDir . '/master.m3u8';
+
+if (file_exists($masterPlaylistPath)) {
+    // Master playlist exists - rewrite media playlist URL to point back to this endpoint with media=1
+    $content = file_get_contents($masterPlaylistPath);
+
+    // Rewrite the video.m3u8 reference to use our proxy with signed token
+    $mediaPlaylistUrl = BASE_URL . 'api/stream/playlist.php?token=' . urlencode($token) . '&media=1';
+    $content = str_replace('video.m3u8', $mediaPlaylistUrl, $content);
+
+    header('Content-Type: application/vnd.apple.mpegurl');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('X-Content-Type-Options: nosniff');
+    echo $content;
+    exit;
+}
+
+// Fallback: No master.m3u8 - serve video.m3u8 directly (older videos)
 $content = file_get_contents($playlistPath);
 $content = rewriteMediaPlaylist($content, $videoId, $baseUrl);
 

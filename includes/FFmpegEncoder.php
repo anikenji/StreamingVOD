@@ -53,8 +53,12 @@ class FFmpegEncoder
         $success = $this->executeWithProgress($cmd, $jobId, $db);
 
         if ($success) {
-            // Update job with completion info
-            $playlistPath = $outputDir . '/video.m3u8';
+            // Detect video info and generate Master Playlist
+            $videoInfo = $this->detectVideoBitrate();
+            $this->generateMasterPlaylist($outputDir, $videoInfo);
+
+            // Update job with completion info - point to master.m3u8
+            $playlistPath = $outputDir . '/master.m3u8';
             $this->updateJobCompletion($jobId, $playlistPath, $db);
 
             logMessage("Encode completed for video {$this->videoId}", 'INFO');
@@ -226,10 +230,15 @@ class FFmpegEncoder
      */
     private function buildTsHlsCommand($ffmpegPath, $inputPath, $outputDirWin)
     {
+        // Add -hls_flags split_by_time to force segment cutting at time boundaries
+        // Add -start_at_zero to reset timestamps from 0
+        // Add -copyts to preserve original timestamps
         $cmd = sprintf(
             '"%s" -i "%s" ' .
             '-c:v copy -c:a copy ' .
+            '-start_at_zero -copyts ' .
             '-hls_time %d -hls_playlist_type %s ' .
+            '-hls_flags split_by_time ' .
             '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
             '-f hls "%s\\video.m3u8" ' .
             '-y',
@@ -406,6 +415,183 @@ class FFmpegEncoder
         // Both AV1 and HEVC need fMP4 segments (TS doesn't support these codecs)
         $fmp4Codecs = ['hevc', 'h265', 'av1'];
         return in_array($codec, $fmp4Codecs);
+    }
+
+    /**
+     * Detect video bitrate, audio bitrate, resolution, and codec profile using ffprobe
+     * Returns array with: video_bitrate, audio_bitrate, width, height, codec_profile
+     * Used for generating Master Playlist with accurate BANDWIDTH and CODECS
+     */
+    private function detectVideoBitrate(): array
+    {
+        $result = [
+            'video_bitrate' => 0,
+            'audio_bitrate' => 0,
+            'width' => 0,
+            'height' => 0,
+            'codec_profile' => 'avc1.640029', // Default H.264 High Level 4.1
+            'frame_rate' => 0,
+        ];
+
+        // Use FFPROBE_PATH constant if defined
+        if (defined('FFPROBE_PATH')) {
+            $ffprobePath = str_replace('/', '\\', FFPROBE_PATH);
+        } else {
+            $ffprobePath = str_replace('ffmpeg', 'ffprobe', FFMPEG_PATH);
+            $ffprobePath = str_replace('/', '\\', $ffprobePath);
+        }
+        $inputPath = str_replace('/', '\\', $this->inputPath);
+
+        if (!file_exists($this->inputPath)) {
+            logMessage("detectVideoBitrate: Input file not found: {$this->inputPath}", 'WARNING');
+            return $result;
+        }
+
+        // Get video stream info (bitrate, resolution, profile, level)
+        $cmdVideo = sprintf(
+            '"%s" -v error -select_streams v:0 -show_entries stream=bit_rate,width,height,profile,level,r_frame_rate -of json "%s"',
+            $ffprobePath,
+            $inputPath
+        );
+
+        $output = [];
+        exec($cmdVideo . ' 2>&1', $output, $exitCode);
+        $jsonOutput = implode('', $output);
+        $data = json_decode($jsonOutput, true);
+
+        if ($exitCode === 0 && isset($data['streams'][0])) {
+            $stream = $data['streams'][0];
+            $result['video_bitrate'] = isset($stream['bit_rate']) ? intval($stream['bit_rate']) : 0;
+            $result['width'] = isset($stream['width']) ? intval($stream['width']) : 0;
+            $result['height'] = isset($stream['height']) ? intval($stream['height']) : 0;
+
+            // Parse frame rate (e.g., "24000/1001" -> 23.976)
+            if (isset($stream['r_frame_rate'])) {
+                $parts = explode('/', $stream['r_frame_rate']);
+                if (count($parts) === 2 && $parts[1] > 0) {
+                    $result['frame_rate'] = round($parts[0] / $parts[1], 3);
+                }
+            }
+
+            // Build codec string from profile and level (e.g., avc1.64001f for High@3.1)
+            if (isset($stream['profile']) && isset($stream['level'])) {
+                $result['codec_profile'] = $this->buildH264CodecString($stream['profile'], $stream['level']);
+            }
+        }
+
+        // Get audio stream info (bitrate)
+        $cmdAudio = sprintf(
+            '"%s" -v error -select_streams a:0 -show_entries stream=bit_rate -of json "%s"',
+            $ffprobePath,
+            $inputPath
+        );
+
+        $output = [];
+        exec($cmdAudio . ' 2>&1', $output, $exitCode);
+        $jsonOutput = implode('', $output);
+        $data = json_decode($jsonOutput, true);
+
+        if ($exitCode === 0 && isset($data['streams'][0]['bit_rate'])) {
+            $result['audio_bitrate'] = intval($data['streams'][0]['bit_rate']);
+        }
+
+        // If video bitrate not found, try getting from format (container level)
+        if ($result['video_bitrate'] === 0) {
+            $cmdFormat = sprintf(
+                '"%s" -v error -show_entries format=bit_rate -of json "%s"',
+                $ffprobePath,
+                $inputPath
+            );
+
+            $output = [];
+            exec($cmdFormat . ' 2>&1', $output, $exitCode);
+            $jsonOutput = implode('', $output);
+            $data = json_decode($jsonOutput, true);
+
+            if ($exitCode === 0 && isset($data['format']['bit_rate'])) {
+                // Total bitrate - subtract audio to get video estimate
+                $totalBitrate = intval($data['format']['bit_rate']);
+                $result['video_bitrate'] = max(0, $totalBitrate - $result['audio_bitrate']);
+            }
+        }
+
+        logMessage("detectVideoBitrate: video={$result['video_bitrate']}, audio={$result['audio_bitrate']}, " .
+            "{$result['width']}x{$result['height']}, codec={$result['codec_profile']}", 'DEBUG');
+
+        return $result;
+    }
+
+    /**
+     * Build H.264 codec string from profile and level
+     * Format: avc1.XXYYZZ where XX=profile_idc, YY=constraint_flags, ZZ=level_idc
+     */
+    private function buildH264CodecString(string $profile, int $level): string
+    {
+        // Profile IDC values
+        $profileMap = [
+            'Baseline' => '42',
+            'Constrained Baseline' => '42',
+            'Main' => '4d',
+            'High' => '64',
+            'High 10' => '6e',
+            'High 4:2:2' => '7a',
+            'High 4:4:4' => 'f4',
+        ];
+
+        $profileHex = $profileMap[$profile] ?? '64'; // Default to High
+
+        // Level is stored as level * 10 (e.g., 31 = Level 3.1)
+        $levelHex = sprintf('%02x', $level);
+
+        // Constraint flags (00 for most cases)
+        $constraintHex = '00';
+
+        return "avc1.{$profileHex}{$constraintHex}{$levelHex}";
+    }
+
+    /**
+     * Generate Master Playlist (master.m3u8) with BANDWIDTH and CODECS info
+     * This enables Shaka Player to display bitrate and select quality properly
+     */
+    private function generateMasterPlaylist(string $outputDir, array $videoInfo): void
+    {
+        $masterPath = $outputDir . '/master.m3u8';
+
+        // Calculate total bandwidth (video + audio) in bits per second
+        $bandwidth = $videoInfo['video_bitrate'] + $videoInfo['audio_bitrate'];
+
+        // If bandwidth detection failed, use a reasonable default
+        if ($bandwidth < 100000) {
+            $bandwidth = 2000000; // 2 Mbps default
+            logMessage("generateMasterPlaylist: Using default bandwidth (2Mbps)", 'WARNING');
+        }
+
+        // Build resolution string
+        $resolution = '';
+        if ($videoInfo['width'] > 0 && $videoInfo['height'] > 0) {
+            $resolution = "RESOLUTION={$videoInfo['width']}x{$videoInfo['height']},";
+        }
+
+        // Build frame rate string
+        $frameRate = '';
+        if ($videoInfo['frame_rate'] > 0) {
+            $frameRate = "FRAME-RATE={$videoInfo['frame_rate']},";
+        }
+
+        // Codec string: video codec + AAC audio
+        $codecs = "\"{$videoInfo['codec_profile']},mp4a.40.2\"";
+
+        // Generate master playlist content
+        $content = "#EXTM3U\n";
+        $content .= "#EXT-X-VERSION:3\n";
+        $content .= "\n";
+        $content .= "#EXT-X-STREAM-INF:BANDWIDTH={$bandwidth},{$resolution}{$frameRate}CODECS={$codecs}\n";
+        $content .= "video.m3u8\n";
+
+        // Write master playlist
+        file_put_contents($masterPath, $content);
+
+        logMessage("Generated Master Playlist: {$masterPath} (bandwidth: {$bandwidth})", 'INFO');
     }
 
     /**
@@ -600,9 +786,20 @@ class FFmpegEncoder
 
     /**
      * Get HLS playlist path for completed video
+     * Prefers master.m3u8 (with BANDWIDTH info), fallback to video.m3u8 for older videos
      */
     public static function getPlaylistPath($videoId)
     {
-        return HLS_OUTPUT_DIR . '/' . $videoId . '/video.m3u8';
+        $baseDir = HLS_OUTPUT_DIR . '/' . $videoId;
+        $masterPath = $baseDir . '/master.m3u8';
+        $videoPath = $baseDir . '/video.m3u8';
+
+        // Prefer master.m3u8 if it exists (has BANDWIDTH/CODECS for Shaka Player)
+        if (file_exists($masterPath)) {
+            return $masterPath;
+        }
+
+        // Fallback to video.m3u8 for backward compatibility
+        return $videoPath;
     }
 }

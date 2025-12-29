@@ -44,6 +44,15 @@ class ShakaPlayerController {
 
         this.player = new shaka.Player(this.video);
 
+        // Configure streaming buffer for better playback experience
+        this.player.configure({
+            streaming: {
+                bufferingGoal: 15,      // Pre-load 30 seconds ahead
+                rebufferingGoal: 2,     // Only need 2s buffer to start playing
+                bufferBehind: 15        // Keep 30s of watched content in memory
+            }
+        });
+
         // Error handling
         this.player.addEventListener('error', (e) => this.onError(e));
 
