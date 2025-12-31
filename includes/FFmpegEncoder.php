@@ -181,7 +181,7 @@ class FFmpegEncoder
             '-f dash ' .
             '-seg_duration ' . HLS_SEGMENT_DURATION . ' ' .
             '"' . $outputDirSafe . '/manifest.mpd" ' .
-            // Output 2: HLS fallback (re-encode to H.264 for iOS/Safari)
+            // Output 2: HLS fallback (re-encode to H.264 fMP4 for iOS/Safari)
             '-map 0:v:0 -map 0:a:0 ' .
             '-c:v libx264 -preset ' . $profile['preset'] . ' ' .
             '-b:v ' . $profile['video_bitrate'] . ' ' .
@@ -189,9 +189,12 @@ class FFmpegEncoder
             '-bufsize ' . $profile['buffer_size'] . ' ' .
             '-g 48 -keyint_min 48 -sc_threshold 0 ' .
             '-c:a aac -b:a ' . $profile['audio_bitrate'] . ' -ar 48000 ' .
+            '-f hls ' .
             '-hls_time ' . HLS_SEGMENT_DURATION . ' -hls_playlist_type ' . HLS_PLAYLIST_TYPE . ' ' .
-            '-hls_segment_filename "' . $outputDirSafe . '/seg_%04d.ts" ' .
-            '-f hls "' . $outputDirSafe . '/video.m3u8" ' .
+            '-hls_segment_type fmp4 ' .
+            '-hls_fmp4_init_filename "init.mp4" ' .
+            '-hls_segment_filename "' . $outputDirSafe . '/seg_%04d.m4s" ' .
+            '"' . $outputDirSafe . '/video.m3u8" ' .
             '-y';
 
         logMessage("Using DASH + HLS fallback for video {$this->videoId}", 'INFO');
@@ -226,38 +229,53 @@ class FFmpegEncoder
     }
 
     /**
-     * Build standard TS HLS command for H.264 streams
+     * Build fMP4 HLS command for H.264 stream copy
+     * Uses fMP4 segments instead of TS to avoid mux.js transmuxing issues in Shaka Player
+     * fMP4 segments work natively with browser MediaSource API
      */
     private function buildTsHlsCommand($ffmpegPath, $inputPath, $outputDirWin)
     {
-        // Add -hls_flags split_by_time to force segment cutting at time boundaries
-        // Add -start_at_zero to reset timestamps from 0
-        // Add -copyts to preserve original timestamps
+        // Use forward slashes for FFmpeg (Windows backslashes can cause issues)
+        $ffmpegPathSafe = str_replace('\\', '/', $ffmpegPath);
+        $inputPathSafe = str_replace('\\', '/', $inputPath);
+        $outputDirSafe = str_replace('\\', '/', $outputDirWin);
+
+        // Use fMP4 segments for better Shaka Player compatibility
+        // TS segments require mux.js transmuxing which causes frame lag at start
+        // -movflags ensures proper fragmentation for streaming
         $cmd = sprintf(
             '"%s" -i "%s" ' .
             '-c:v copy -c:a copy ' .
-            '-start_at_zero -copyts ' .
-            '-hls_time %d -hls_playlist_type %s ' .
-            '-hls_flags split_by_time ' .
-            '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
-            '-f hls "%s\\video.m3u8" ' .
-            '-y',
-            $ffmpegPath,
-            $inputPath,
+            '-movflags +frag_keyframe+empty_moov+default_base_moof ' .
+            '-f hls -hls_time %d -hls_playlist_type %s ' .
+            '-hls_segment_type fmp4 ' .
+            '-hls_fmp4_init_filename "init.mp4" ' .
+            '-hls_segment_filename "%s/seg_%%04d.m4s" ' .
+            '"%s/video.m3u8" -y',
+            $ffmpegPathSafe,
+            $inputPathSafe,
             HLS_SEGMENT_DURATION,
             HLS_PLAYLIST_TYPE,
-            $outputDirWin,
-            $outputDirWin
+            $outputDirSafe,
+            $outputDirSafe
         );
 
+        logMessage("Using fMP4 HLS segments for H.264 stream copy", 'INFO');
+        logMessage("fMP4 command: $cmd", 'DEBUG');
         return $cmd;
     }
 
     /**
-     * Build re-encode command (H.264 output with TS segments)
+     * Build re-encode command (H.264 output with fMP4 segments)
+     * Uses fMP4 for consistency with stream copy mode
      */
     private function buildReencodeCommand($ffmpegPath, $inputPath, $outputDirWin, $profile, $subtitleFilter, $maxRate, $bufSize)
     {
+        // Use forward slashes for FFmpeg (Windows backslashes can cause issues)
+        $ffmpegPathSafe = str_replace('\\', '/', $ffmpegPath);
+        $inputPathSafe = str_replace('\\', '/', $inputPath);
+        $outputDirSafe = str_replace('\\', '/', $outputDirWin);
+
         $cmd = sprintf(
             '"%s" -i "%s" ' .
             '-c:v libx264 -preset %s ' .
@@ -265,12 +283,15 @@ class FFmpegEncoder
             '-b:v %s -maxrate %s -bufsize %s ' .
             '-g 48 -keyint_min 48 -sc_threshold 0 ' .
             '-c:a aac -b:a %s -ar 48000 ' .
+            '-f hls ' .
             '-hls_time %d -hls_playlist_type %s ' .
-            '-hls_segment_filename "%s\\seg_%%04d.ts" ' .
-            '-f hls "%s\\video.m3u8" ' .
+            '-hls_segment_type fmp4 ' .
+            '-hls_fmp4_init_filename init.mp4 ' .
+            '-hls_segment_filename "%s/seg_%%04d.m4s" ' .
+            '"%s/video.m3u8" ' .
             '-y',
-            $ffmpegPath,
-            $inputPath,
+            $ffmpegPathSafe,
+            $inputPathSafe,
             $profile['preset'],
             $subtitleFilter,
             $profile['video_bitrate'],
@@ -279,8 +300,8 @@ class FFmpegEncoder
             $profile['audio_bitrate'],
             HLS_SEGMENT_DURATION,
             HLS_PLAYLIST_TYPE,
-            $outputDirWin,
-            $outputDirWin
+            $outputDirSafe,
+            $outputDirSafe
         );
 
         return $cmd;

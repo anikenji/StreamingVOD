@@ -825,6 +825,16 @@ body.shaka-embed {
     fill: var(--accent-orange);
 }
 
+/* Settings section label */
+.shaka-settings-label {
+    padding: 8px 20px 4px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
     .shaka-controls-overlay {

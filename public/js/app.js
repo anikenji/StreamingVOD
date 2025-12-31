@@ -1244,8 +1244,40 @@ function showEditEpisodeModal(videoId, movieId, episodeData) {
         </div>
         
         <div class="form-group">
-            <label>🔤 URL Phụ đề (.vtt hoặc .srt)</label>
-            <input type="url" id="edit-subtitle-url" value="${episodeData.subtitle_url || ''}" placeholder="https://example.com/sub.vtt">
+            <label>🔤 Quản lý Phụ đề</label>
+            
+            <!-- Subtitle List -->
+            <div id="subtitle-list" style="margin-bottom: 15px;">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+            
+            <!-- Add New Subtitle -->
+            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-weight: 600; margin-bottom: 10px; font-size: 0.9em; color: var(--accent-blue);">➕ Thêm phụ đề mới</div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <select id="subtitle-lang-select" class="form-control" style="padding: 8px;" onchange="document.getElementById('subtitle-label-input').value = this.options[this.selectedIndex].text">
+                        <option value="vi">Tiếng Việt</option>
+                        <option value="en">English</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                        <option value="th">Thai</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <input type="text" id="subtitle-label-input" class="form-control" placeholder="Nhãn (ví dụ: Tiếng Việt)" value="Tiếng Việt">
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <input type="file" id="subtitle-file-input" accept=".vtt,.srt,.ass,.ssa" class="form-control" style="flex: 1; font-size: 0.85em;">
+                    <button type="button" id="btn-upload-subtitle" class="btn-primary" style="white-space: nowrap;" onclick="uploadSubtitle()">
+                        📤 Upload
+                    </button>
+                </div>
+                <div style="font-size: 0.8em; color: var(--text-muted); margin-top: 6px;">
+                    Hỗ trợ .vtt, .srt, .ass (tự động convert sang VTT)
+                </div>
+            </div>
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -1277,6 +1309,9 @@ function showEditEpisodeModal(videoId, movieId, episodeData) {
     `;
 
     modal.classList.add('active');
+
+    // Load subtitles
+    loadEpisodeSubtitles(editingEpisodeId);
 }
 
 function closeEditEpisodeModal() {
@@ -1366,8 +1401,150 @@ async function saveEpisodeMetadata(event) {
 }
 
 // ================================
-// User Management Functions
+// Subtitle Management Functions
 // ================================
+
+let currentSubtitles = [];
+
+/**
+ * Load subtitles for an episode
+ */
+async function loadEpisodeSubtitles(videoId) {
+    const listEl = document.getElementById('subtitle-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    try {
+        const response = await fetch(`/api/subtitles/list.php?video_id=${videoId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            currentSubtitles = data.subtitles;
+            renderEpisodeSubtitles();
+        } else {
+            listEl.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        console.error('Failed to load subtitles:', error);
+        listEl.innerHTML = `<div class="error">Failed to load subtitles</div>`;
+    }
+}
+
+/**
+ * Render subtitle list in modal
+ */
+function renderEpisodeSubtitles() {
+    const listEl = document.getElementById('subtitle-list');
+    if (!listEl) return;
+
+    if (currentSubtitles.length === 0) {
+        listEl.innerHTML = '<div class="empty-state" style="padding: 15px; text-align: center; font-style: italic; color: var(--text-muted); background: rgba(255,255,255,0.02); border-radius: 8px;">Chưa có phụ đề nào</div>';
+        return;
+    }
+
+    listEl.innerHTML = currentSubtitles.map(sub => `
+        <div class="subtitle-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); margin-bottom: 8px; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="badge" style="background: var(--accent-blue); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${sub.language.toUpperCase()}</span>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 500;">${escapeHtml(sub.label)}</span>
+                    <a href="${sub.url}" target="_blank" style="font-size: 0.8em; color: var(--text-muted); text-decoration: none;">${escapeHtml(sub.file_path)}</a>
+                </div>
+            </div>
+            <button type="button" class="btn-icon btn-danger" onclick="deleteSubtitle(${sub.id})" title="Xóa phụ đề">🗑️</button>
+        </div>
+    `).join('');
+}
+
+/**
+ * Trigger subtitle upload
+ */
+async function uploadSubtitle() {
+    const fileInput = document.getElementById('subtitle-file-input');
+    const langInput = document.getElementById('subtitle-lang-select');
+    const labelInput = document.getElementById('subtitle-label-input');
+
+    const file = fileInput.files[0];
+    const language = langInput.value;
+    const label = labelInput.value.trim();
+
+    if (!file) {
+        alert('Vui lòng chọn file (.vtt, .srt, .ass)');
+        return;
+    }
+    if (!label) {
+        alert('Vui lòng nhập nhãn hiển thị (ví dụ: Tiếng Việt)');
+        return;
+    }
+
+    // Show loading state
+    const btn = document.getElementById('btn-upload-subtitle');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Uploading...';
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('video_id', editingEpisodeId);
+    formData.append('language', language);
+    formData.append('label', label);
+
+    try {
+        const response = await fetch('/api/subtitles/upload.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Reset form
+            fileInput.value = '';
+            labelInput.value = '';
+            // Reload list
+            await loadEpisodeSubtitles(editingEpisodeId);
+            // Show toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 24px; border-radius: 8px; z-index: 9999;';
+            toast.textContent = 'Upload phụ đề thành công!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        } else {
+            alert('Upload thất bại: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Lỗi upload: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Delete subtitle
+ */
+async function deleteSubtitle(subtitleId) {
+    if (!confirm('Bạn có chắc muốn xóa phụ đề này?')) return;
+
+    try {
+        const response = await fetch('/api/subtitles/delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subtitle_id: subtitleId })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            await loadEpisodeSubtitles(editingEpisodeId);
+        } else {
+            alert('Lỗi: ' + data.error);
+        }
+    } catch (error) {
+        alert('Xóa thất bại: ' + error.message);
+    }
+}
+
 
 let currentUsers = [];
 

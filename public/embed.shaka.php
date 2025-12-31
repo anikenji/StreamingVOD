@@ -60,6 +60,36 @@ $thumbnailUrl = $video['thumbnail_path'] ? THUMBNAIL_BASE_URL . '/' . $videoId .
 
 // Episode metadata
 $subtitleUrl = $video['subtitle_url'] ?? null;
+// Fetch multi-language subtitles
+$subSql = "SELECT id, language, label, file_path, mime_type FROM subtitles WHERE video_id = ? ORDER BY language ASC";
+$dbSubtitles = $db->query($subSql, [$videoId]);
+$subtitles = [];
+
+// Add single subtitleUrl if exists (legacy)
+if ($subtitleUrl) {
+    $subtitles[] = [
+        'language' => 'vi', // Assume default is Vietnamese
+        'label' => 'Tiếng Việt',
+        'url' => $subtitleUrl,
+        'mime' => 'text/vtt'
+    ];
+}
+
+foreach ($dbSubtitles as $sub) {
+    // URL via Proxy
+    // We reused streamToken which is already generated for video
+    // api/stream/subtitle.php?token=...&id=...
+    $url = BASE_URL . 'api/stream/subtitle.php?token=' . urlencode($streamToken) . '&id=' . $sub['id'];
+
+    $subtitles[] = [
+        'language' => $sub['language'],
+        'label' => $sub['label'],
+        'url' => $url,
+        'mime' => $sub['mime_type'] ?: 'text/vtt'
+    ];
+}
+
+
 $introStart = $video['intro_start'] ?? null;
 $introEnd = $video['intro_end'] ?? null;
 $outroStart = $video['outro_start'] ?? null;
@@ -103,65 +133,65 @@ $outroEnd = $video['outro_end'] ?? null;
                 e.preventDefault();
             }
         });
-        const devtools = {
-            isOpen: false,
-            orientation: null
-        };
+        // const devtools = {
+        //     isOpen: false,
+        //     orientation: null
+        // };
 
-        const threshold = 160;
+        // const threshold = 160;
 
-        // Skip devtools detection on mobile devices (false positives from dynamic toolbars)
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        const isMobile = isIOS || isAndroid || /Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const skipDevtoolsCheck = isMobile || isSafari;
+        // // Skip devtools detection on mobile devices (false positives from dynamic toolbars)
+        // const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        // const isAndroid = /Android/i.test(navigator.userAgent);
+        // const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        // const isMobile = isIOS || isAndroid || /Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        // const skipDevtoolsCheck = isMobile || isSafari;
 
-        const emitEvent = (isOpen, orientation) => {
-            window.dispatchEvent(new CustomEvent('devtoolschange', {
-                detail: {
-                    isOpen,
-                    orientation
-                }
-            }));
-        };
+        // const emitEvent = (isOpen, orientation) => {
+        //     window.dispatchEvent(new CustomEvent('devtoolschange', {
+        //         detail: {
+        //             isOpen,
+        //             orientation
+        //         }
+        //     }));
+        // };
 
-        const checkDevTools = () => {
-            // Skip on iOS/Safari to prevent false positives
-            if (skipDevtoolsCheck) return;
+        // const checkDevTools = () => {
+        //     // Skip on iOS/Safari to prevent false positives
+        //     if (skipDevtoolsCheck) return;
 
-            const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-            const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-            const orientation = widthThreshold ? 'vertical' : 'horizontal';
+        //     const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+        //     const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+        //     const orientation = widthThreshold ? 'vertical' : 'horizontal';
 
-            if (
-                !(heightThreshold && widthThreshold) &&
-                ((window.Firebug && window.Firebug.chrome && window.Firebug.chrome.isInitialized) || widthThreshold || heightThreshold)
-            ) {
-                if (!devtools.isOpen || devtools.orientation !== orientation) {
-                    emitEvent(true, orientation);
-                }
-                devtools.isOpen = true;
-                devtools.orientation = orientation;
-            } else {
-                if (devtools.isOpen) {
-                    emitEvent(false, null);
-                }
-                devtools.isOpen = false;
-                devtools.orientation = null;
-            }
-        };
+        //     if (
+        //         !(heightThreshold && widthThreshold) &&
+        //         ((window.Firebug && window.Firebug.chrome && window.Firebug.chrome.isInitialized) || widthThreshold || heightThreshold)
+        //     ) {
+        //         if (!devtools.isOpen || devtools.orientation !== orientation) {
+        //             emitEvent(true, orientation);
+        //         }
+        //         devtools.isOpen = true;
+        //         devtools.orientation = orientation;
+        //     } else {
+        //         if (devtools.isOpen) {
+        //             emitEvent(false, null);
+        //         }
+        //         devtools.isOpen = false;
+        //         devtools.orientation = null;
+        //     }
+        // };
 
-        setInterval(checkDevTools, 1);
+        // setInterval(checkDevTools, 1);
 
-        // Lắng nghe sự kiện và thực hiện hành động
-        window.addEventListener('devtoolschange', event => {
-            if (event.detail.isOpen) {
-                // Hide body immediately for instant effect
-                document.body.style.display = 'none';
-                window.location.reload();
-            }
-        });
+        // // Lắng nghe sự kiện và thực hiện hành động
+        // window.addEventListener('devtoolschange', event => {
+        //     if (event.detail.isOpen) {
+        //         // Hide body immediately for instant effect
+        //         document.body.style.display = 'none';
+        //         window.location.reload();
+        //     }
+        // });
     </script>
 </head>
 
@@ -304,7 +334,7 @@ $outroEnd = $video['outro_end'] ?? null;
                 manifestUrl: <?= json_encode($securedPlaylistUrl) ?>,
                 dashUrl: <?= json_encode($dashManifestExists ? $securedDashUrl : '') ?>,
                 posterUrl: <?= json_encode($thumbnailUrl) ?>,
-                subtitleUrl: <?= json_encode($subtitleUrl) ?>,
+                subtitles: <?= json_encode($subtitles) ?>,
                 introStart: <?= json_encode($introStart !== null ? floatval($introStart) : null) ?>,
                 introEnd: <?= json_encode($introEnd !== null ? floatval($introEnd) : null) ?>,
                 outroStart: <?= json_encode($outroStart !== null ? floatval($outroStart) : null) ?>,

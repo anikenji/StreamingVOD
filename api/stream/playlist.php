@@ -258,6 +258,64 @@ function detectCodecsFromInit($initPath)
     return $videoCodecStr . ',' . $audioCodecStr;
 }
 
+// Detect bandwidth from segment files
+function detectBitrateFromDir($hlsDir)
+{
+    // Try to get bitrate from init.mp4 using ffprobe
+    $initPath = $hlsDir . '/init.mp4';
+    if (file_exists($initPath) && defined('FFPROBE_PATH')) {
+        $ffprobePath = str_replace('/', '\\', FFPROBE_PATH);
+        $initPathSafe = str_replace('/', '\\', $initPath);
+
+        // Get first segment to calculate bitrate from actual encoded content
+        $segments = glob($hlsDir . '/*.m4s');
+        if (!empty($segments)) {
+            // Get video.m3u8 to find segment duration
+            $m3u8Path = $hlsDir . '/video.m3u8';
+            $segmentDuration = HLS_SEGMENT_DURATION ?? 4;
+
+            if (file_exists($m3u8Path)) {
+                $m3u8Content = file_get_contents($m3u8Path);
+                if (preg_match('/#EXTINF:([\d.]+),/', $m3u8Content, $matches)) {
+                    $segmentDuration = floatval($matches[1]);
+                }
+            }
+
+            // Calculate average bitrate from segment file sizes
+            $totalSize = 0;
+            $segmentCount = 0;
+            foreach (array_slice($segments, 1, 10) as $segment) { // Skip first, take up to 10
+                $totalSize += filesize($segment);
+                $segmentCount++;
+            }
+
+            if ($segmentCount > 0 && $segmentDuration > 0) {
+                $avgSegmentSize = $totalSize / $segmentCount;
+                // Bitrate = (segment size in bits) / (segment duration in seconds)
+                $bitrate = intval(($avgSegmentSize * 8) / $segmentDuration);
+                if ($bitrate > 100000) { // At least 100 Kbps
+                    return $bitrate;
+                }
+            }
+        }
+    }
+
+    // Fallback: estimate from segment file sizes for TS
+    $segments = glob($hlsDir . '/*.ts');
+    if (!empty($segments) && count($segments) >= 2) {
+        $segmentSize = filesize($segments[1]); // Skip first segment (may be partial)
+        $segmentDuration = HLS_SEGMENT_DURATION ?? 4;
+
+        // Estimate bitrate: (segment size in bits) / (segment duration in seconds)
+        $bitrate = intval(($segmentSize * 8) / $segmentDuration);
+        if ($bitrate > 100000) {
+            return $bitrate;
+        }
+    }
+
+    return 2000000; // 2 Mbps default fallback
+}
+
 // Rewrite segment URLs helper
 function rewriteMediaPlaylist($content, $videoId, $baseUrl)
 {
@@ -309,6 +367,7 @@ if ($mediaPlaylist === '1') {
 // For fMP4, generate Master Playlist with CODECS
 if ($isFmp4) {
     $codecs = detectCodecsFromInit($initPath);
+    $bandwidth = detectBitrateFromDir($hlsDir);
 
     // Build Master Playlist
     $masterPlaylist = "#EXTM3U\n";
@@ -318,9 +377,9 @@ if ($isFmp4) {
     $mediaPlaylistUrl = BASE_URL . 'api/stream/playlist.php?token=' . urlencode($token) . '&media=1';
 
     if ($codecs) {
-        $masterPlaylist .= '#EXT-X-STREAM-INF:BANDWIDTH=5000000,CODECS="' . $codecs . '"' . "\n";
+        $masterPlaylist .= '#EXT-X-STREAM-INF:BANDWIDTH=' . $bandwidth . ',CODECS="' . $codecs . '"' . "\n";
     } else {
-        $masterPlaylist .= "#EXT-X-STREAM-INF:BANDWIDTH=5000000\n";
+        $masterPlaylist .= "#EXT-X-STREAM-INF:BANDWIDTH={$bandwidth}\n";
     }
     $masterPlaylist .= $mediaPlaylistUrl . "\n";
 
