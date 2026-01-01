@@ -240,12 +240,29 @@ class FFmpegEncoder
         $inputPathSafe = str_replace('\\', '/', $inputPath);
         $outputDirSafe = str_replace('\\', '/', $outputDirWin);
 
+        // Detect audio codec - browsers only support AAC/MP3, not EAC3/DTS/AC3
+        $audioInfo = $this->detectAudioCodec();
+        $audioCodec = $audioInfo['codec'];
+        $audioChannels = $audioInfo['channels'];
+
+        // Browser-compatible audio codecs (can stream copy)
+        $compatibleCodecs = ['aac', 'mp3', 'mp4a'];
+
+        if (in_array($audioCodec, $compatibleCodecs)) {
+            $audioParams = '-c:a copy';
+            logMessage("Audio codec '{$audioCodec}' is browser-compatible - stream copy", 'INFO');
+        } else {
+            // Re-encode to AAC, preserving channel count (max 6 for 5.1)
+            $targetChannels = min($audioChannels, 6);
+            $bitrate = ($targetChannels >= 6) ? '384k' : '192k';
+            $audioParams = "-c:a aac -b:a {$bitrate} -ar 48000 -ac {$targetChannels}";
+            logMessage("Audio codec '{$audioCodec}' not browser-compatible - re-encoding to AAC {$targetChannels}ch", 'INFO');
+        }
+
         // Use fMP4 segments for better Shaka Player compatibility
-        // TS segments require mux.js transmuxing which causes frame lag at start
-        // -movflags ensures proper fragmentation for streaming
         $cmd = sprintf(
             '"%s" -i "%s" ' .
-            '-c:v copy -c:a copy ' .
+            '-c:v copy %s ' .
             '-movflags +frag_keyframe+empty_moov+default_base_moof ' .
             '-f hls -hls_time %d -hls_playlist_type %s ' .
             '-hls_segment_type fmp4 ' .
@@ -254,6 +271,7 @@ class FFmpegEncoder
             '"%s/video.m3u8" -y',
             $ffmpegPathSafe,
             $inputPathSafe,
+            $audioParams,
             HLS_SEGMENT_DURATION,
             HLS_PLAYLIST_TYPE,
             $outputDirSafe,
@@ -411,6 +429,50 @@ class FFmpegEncoder
 
         logMessage("Failed to detect video codec for video {$this->videoId} (exitCode: $exitCode, output: $codec)", 'WARNING');
         return null;
+    }
+
+    /**
+     * Detect primary audio codec using ffprobe
+     * Returns array with: codec (e.g., 'aac', 'eac3'), channels (e.g., 6)
+     */
+    private function detectAudioCodec(): array
+    {
+        $result = ['codec' => 'aac', 'channels' => 2];
+
+        if (defined('FFPROBE_PATH')) {
+            $ffprobePath = str_replace('/', '\\', FFPROBE_PATH);
+        } else {
+            $ffprobePath = str_replace('ffmpeg', 'ffprobe', FFMPEG_PATH);
+            $ffprobePath = str_replace('/', '\\', $ffprobePath);
+        }
+        $inputPath = str_replace('/', '\\', $this->inputPath);
+
+        if (!file_exists($this->inputPath)) {
+            return $result;
+        }
+
+        $cmd = sprintf(
+            '"%s" -v error -select_streams a:0 -show_entries stream=codec_name,channels -of csv=p=0 "%s"',
+            $ffprobePath,
+            $inputPath
+        );
+
+        $output = [];
+        $exitCode = -1;
+        exec($cmd . ' 2>&1', $output, $exitCode);
+
+        if ($exitCode === 0 && !empty($output[0])) {
+            $parts = explode(',', trim($output[0]));
+            if (count($parts) >= 1) {
+                $result['codec'] = strtolower(trim($parts[0]));
+            }
+            if (count($parts) >= 2) {
+                $result['channels'] = intval(trim($parts[1]));
+            }
+            logMessage("detectAudioCodec: {$result['codec']}, {$result['channels']}ch", 'DEBUG');
+        }
+
+        return $result;
     }
 
     /**

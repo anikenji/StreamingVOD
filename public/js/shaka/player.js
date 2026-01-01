@@ -55,8 +55,22 @@ class ShakaPlayerController {
             streaming: {
                 bufferingGoal: 30,      // Pre-load 30 seconds ahead
                 rebufferingGoal: 2,     // Only need 2s buffer to start playing
-                bufferBehind: 30      // Keep 30s of watched content in memory
-            }
+                bufferBehind: 30        // Keep 30s of watched content in memory
+            },
+            // Audio codec preference for dual audio support
+            // Browsers will auto-fallback to AAC if E-AC-3 is not supported,
+            // but we set explicit preference order for better compatibility
+            preferredAudioCodecs: [
+                'ec-3',      // E-AC-3 (Dolby Digital Plus) - preferred for Spatial Audio
+                'ac-3',      // AC-3 (Dolby Digital)
+                'mp4a.40.2', // AAC-LC (universal fallback)
+                'mp4a.40.5', // HE-AAC
+                'opus'       // Opus
+            ],
+            // Prefer 6-channel surround audio when available
+            // Shaka will auto-select based on browser codec support
+            // If E-AC-3 not supported, it falls back to AAC stereo automatically
+            preferredAudioChannelCount: 6
         });
 
         // Error handling
@@ -948,70 +962,71 @@ class ShakaPlayerController {
 
     buildSettingsMenu(submenu = null) {
         if (!this.settingsMenu) return;
+        try {
 
-        const tracks = this.player.getVariantTracks();
-        const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+            const tracks = this.player.getVariantTracks();
+            const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-        // Get current quality
-        const currentTrack = tracks.find(t => t.active);
-        const currentQuality = this.player.getConfiguration().abr.enabled
-            ? 'Auto'
-            : (currentTrack?.height ? `${currentTrack.height}p` : 'Auto');
+            // Get current quality
+            const currentTrack = tracks.find(t => t.active);
+            const currentQuality = this.player.getConfiguration().abr.enabled
+                ? 'Auto'
+                : (currentTrack?.height ? `${currentTrack.height}p` : 'Auto');
 
-        let html = '';
+            let html = '';
 
-        if (submenu === 'speed') {
-            // Speed submenu
-            html = `
+            if (submenu === 'speed') {
+                // Speed submenu
+                html = `
                 <div class="shaka-settings-item shaka-settings-back" data-action="back">
                     <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
                     <span>Speed</span>
                 </div>
             `;
-            speeds.forEach(speed => {
-                const isActive = this.video.playbackRate === speed;
-                html += `
+                speeds.forEach(speed => {
+                    const isActive = this.video.playbackRate === speed;
+                    html += `
                     <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-speed" data-value="${speed}">
                         <span>${speed === 1 ? 'Normal' : speed + 'x'}</span>
                         ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                     </div>
                 `;
-            });
-        } else if (submenu === 'quality') {
-            // Quality submenu
-            html = `
+                });
+            } else if (submenu === 'quality') {
+                // Quality submenu
+                html = `
                 <div class="shaka-settings-item shaka-settings-back" data-action="back">
                     <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
                     <span>Quality</span>
                 </div>
             `;
 
-            // Auto option
-            const isAuto = this.player.getConfiguration().abr.enabled;
-            html += `
+                // Auto option
+                const isAuto = this.player.getConfiguration().abr.enabled;
+                html += `
                 <div class="shaka-settings-item ${isAuto ? 'active' : ''}" data-action="set-quality" data-value="auto">
                     <span>Auto</span>
                     ${isAuto ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                 </div>
             `;
 
-            // Quality options (unique heights, sorted descending)
-            const qualities = [...new Set(tracks.map(t => t.height))].filter(h => h).sort((a, b) => b - a);
-            qualities.forEach(height => {
-                const isActive = !isAuto && currentTrack?.height === height;
-                html += `
+                // Quality options (unique heights, sorted descending)
+                const qualities = [...new Set(tracks.map(t => t.height))].filter(h => h).sort((a, b) => b - a);
+                qualities.forEach(height => {
+                    const isActive = !isAuto && currentTrack?.height === height;
+                    html += `
                     <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-quality" data-value="${height}">
                         <span>${height}p</span>
                         ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                     </div>
                 `;
-            });
-        } else if (submenu === 'subtitles') {
-            // Subtitles submenu
-            const textTracks = this.player.getTextTracks();
-            const isVisible = this.player.isTextTrackVisible();
+                });
+            } else if (submenu === 'subtitles') {
+                // Subtitles submenu
+                const textTracks = this.player.getTextTracks();
+                const isVisible = this.player.isTextTrackVisible();
 
-            html = `
+                html = `
                 <div class="shaka-settings-item shaka-settings-back" data-action="back">
                     <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
                     <span>Subtitles</span>
@@ -1022,21 +1037,21 @@ class ShakaPlayerController {
                 </div>
             `;
 
-            textTracks.forEach((track, index) => {
-                const isActive = isVisible && track.active;
-                const langLabel = track.language === 'vi' ? 'Tiếng Việt' :
-                    track.language === 'en' ? 'English' :
-                        track.label || track.language || `Track ${index + 1}`;
-                html += `
+                textTracks.forEach((track, index) => {
+                    const isActive = isVisible && track.active;
+                    const langLabel = track.language === 'vi' ? 'Tiếng Việt' :
+                        track.language === 'en' ? 'English' :
+                            track.label || track.language || `Track ${index + 1}`;
+                    html += `
                     <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-subtitle" data-value="${index}">
                         <span>${langLabel}</span>
                         ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                     </div>
                 `;
-            });
+                });
 
-            // Upload local file option
-            html += `
+                // Upload local file option
+                html += `
                 <div class="shaka-settings-item" data-action="upload-subtitle">
                     <span>Upload File (.srt, .vtt, .ass)</span>
                 </div>
@@ -1046,9 +1061,91 @@ class ShakaPlayerController {
                 </div>
             `;
 
-        } else if (submenu === 'subtitle-style') {
-            // Main Subtitle Style submenu (Categories)
-            html = `
+            } else if (submenu === 'audio') {
+                // Audio tracks submenu - Use getAudioLanguagesAndRoles for EXT-X-MEDIA support
+                let audioTracks = [];
+
+                // Try getAudioLanguagesAndRoles first (Shaka v4+ proper method for HLS audio)
+                if (typeof this.player.getAudioLanguagesAndRoles === 'function') {
+                    const langRoles = this.player.getAudioLanguagesAndRoles();
+                    langRoles.forEach(lr => {
+                        audioTracks.push({
+                            language: lr.language || 'und',
+                            role: lr.role || '',
+                            label: lr.label || this.getAudioLanguageLabel(lr.language)
+                        });
+                    });
+                }
+
+                // Fallback: get from variant tracks if no audio languages found
+                if (audioTracks.length === 0) {
+                    const variantTracks = this.player.getVariantTracks();
+                    const seenKeys = new Set();
+                    variantTracks.forEach(track => {
+                        const key = (track.language || 'und') + '_' + (track.channelsCount || 2);
+                        if (!seenKeys.has(key)) {
+                            seenKeys.add(key);
+                            audioTracks.push({
+                                language: track.language || 'und',
+                                channels: track.channelsCount || 2,
+                                label: this.getAudioLanguageLabel(track.language) || track.label || 'Default'
+                            });
+                        }
+                    });
+                }
+
+                html = `
+                <div class="shaka-settings-item shaka-settings-back" data-action="back">
+                    <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                    <span>Audio</span>
+                </div>
+            `;
+
+                // Get active audio from variant tracks
+                const variantTracks = this.player.getVariantTracks();
+                const activeVariant = variantTracks.find(t => t.active);
+                const activeAudioLang = activeVariant?.language || 'und';
+
+                if (audioTracks.length === 0) {
+                    // No separate audio tracks - show info from variant track
+                    const variantTracks = this.player.getVariantTracks();
+                    const activeVariant = variantTracks.find(t => t.active) || variantTracks[0];
+                    const channels = activeVariant?.channelsCount || 2;
+                    const channelLabel = channels >= 6 ? '5.1' : 'Stereo';
+                    const lang = (activeVariant?.language || 'und').split('_')[0];
+                    const langLabel = this.getAudioLanguageLabel(lang);
+
+                    html += `
+                    <div class="shaka-settings-item active">
+                        <span>${langLabel} (${channelLabel})</span>
+                        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+                    </div>
+                `;
+                } else {
+                    // Show all audio tracks
+                    audioTracks.forEach(track => {
+                        // Extract base language (jpn_0 -> jpn)
+                        const baseLang = track.language.split('_')[0];
+                        const isActive = activeAudioLang === track.language || activeAudioLang.startsWith(baseLang);
+
+                        // Get proper display label
+                        let displayLabel = this.getAudioLanguageLabel(baseLang);
+                        // Get channel count from audioTracks (populated from variant) or default
+                        const channels = track.channelsCount || track.channels || 2;
+                        const channelLabel = channels >= 6 ? '5.1' : 'Stereo';
+
+                        html += `
+                        <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-audio" data-value="${track.language}">
+                            <span>${displayLabel} (${channelLabel})</span>
+                            ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
+                        </div>
+                    `;
+                    });
+                }
+
+            } else if (submenu === 'subtitle-style') {
+                // Main Subtitle Style submenu (Categories)
+                html = `
                 <div class="shaka-settings-item shaka-settings-back" data-action="subtitles">
                     <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
                     <span>Back</span>
@@ -1083,157 +1180,158 @@ class ShakaPlayerController {
                 </div>
             `;
 
-        } else if (submenu && submenu.startsWith('style-')) {
-            // Generic handler for nested style submenus
-            html = `
+            } else if (submenu && submenu.startsWith('style-')) {
+                // Generic handler for nested style submenus
+                html = `
                 <div class="shaka-settings-item shaka-settings-back" data-action="subtitle-style">
                     <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
                     <span>Back</span>
                 </div>
             `;
 
-            const prefs = this.subtitlePrefs;
-            let items = [];
-            let currentVal = '';
-            let actionName = '';
-            let label = '';
+                const prefs = this.subtitlePrefs;
+                let items = [];
+                let currentVal = '';
+                let actionName = '';
+                let label = '';
 
-            switch (submenu) {
-                case 'style-size':
-                    label = 'Font Size';
-                    actionName = 'set-font-size';
-                    currentVal = prefs.fontSize;
-                    items = [
-                        { value: 'small', label: 'Small' },
-                        { value: 'medium', label: 'Medium' },
-                        { value: 'large', label: 'Large' },
-                        { value: 'xlarge', label: 'X-Large' }
-                    ];
-                    break;
-                case 'style-family':
-                    label = 'Font Family';
-                    actionName = 'set-font-family';
-                    currentVal = prefs.fontFamily;
-                    items = [
-                        { value: 'arial', label: 'Arial', style: 'font-family: Arial, sans-serif' },
-                        { value: 'serif', label: 'Times New Roman', style: 'font-family: Times New Roman, serif' }
-                    ];
-                    break;
-                case 'style-color':
-                    label = 'Font Color';
-                    actionName = 'set-font-color';
-                    currentVal = prefs.fontColor;
-                    items = [
-                        { value: '#ffffff', label: '● White', style: 'color: #ffffff' },
-                        { value: '#ffff00', label: '● Yellow', style: 'color: #ffff00' },
-                        { value: '#00ff00', label: '● Green', style: 'color: #00ff00' },
-                        { value: '#00ffff', label: '● Cyan', style: 'color: #00ffff' },
-                        { value: '#ff69b4', label: '● Pink', style: 'color: #ff69b4' }
-                    ];
-                    break;
-                case 'style-opacity':
-                    label = 'Text Opacity';
-                    actionName = 'set-font-opacity';
-                    currentVal = String(prefs.fontOpacity);
-                    items = [
-                        { value: '1', label: '100%' },
-                        { value: '0.75', label: '75%' },
-                        { value: '0.5', label: '50%' },
-                        { value: '0.25', label: '25%' }
-                    ];
-                    break;
-                case 'style-edge':
-                    label = 'Edge Style';
-                    actionName = 'set-edge-style';
-                    currentVal = prefs.edgeStyle;
-                    items = [
-                        { value: 'none', label: 'None' },
-                        { value: 'outline', label: 'Outline' },
-                        { value: 'shadow', label: 'Drop Shadow' },
-                        { value: 'raised', label: 'Raised' },
-                        { value: 'depressed', label: 'Depressed' }
-                    ];
-                    break;
-                case 'style-bg':
-                    label = 'Background';
-                    // This is tricky because we have color AND opacity in one menu? 
-                    // Let's split them or combine them. For simplicity, let's keep them separate but here I'll just do Background Color first?
-                    // Or I can add sections WITHIN this submenu.
-                    // Let's do sections.
-                    break;
-                case 'style-pos':
-                    label = 'Position';
-                    actionName = 'set-position';
-                    currentVal = prefs.position;
-                    items = [
-                        { value: 'bottom', label: 'Bottom' },
-                        { value: 'lower', label: 'Lower' },
-                        { value: 'middle', label: 'Middle' },
-                        { value: 'higher', label: 'Higher' }
-                    ];
-                    break;
-            }
+                switch (submenu) {
+                    case 'style-size':
+                        label = 'Font Size';
+                        actionName = 'set-font-size';
+                        currentVal = prefs.fontSize;
+                        items = [
+                            { value: 'small', label: 'Small' },
+                            { value: 'medium', label: 'Medium' },
+                            { value: 'large', label: 'Large' },
+                            { value: 'xlarge', label: 'X-Large' }
+                        ];
+                        break;
+                    case 'style-family':
+                        label = 'Font Family';
+                        actionName = 'set-font-family';
+                        currentVal = prefs.fontFamily;
+                        items = [
+                            { value: 'arial', label: 'Arial', style: 'font-family: Arial, sans-serif' },
+                            { value: 'serif', label: 'Times New Roman', style: 'font-family: Times New Roman, serif' }
+                        ];
+                        break;
+                    case 'style-color':
+                        label = 'Font Color';
+                        actionName = 'set-font-color';
+                        currentVal = prefs.fontColor;
+                        items = [
+                            { value: '#ffffff', label: '● White', style: 'color: #ffffff' },
+                            { value: '#ffff00', label: '● Yellow', style: 'color: #ffff00' },
+                            { value: '#00ff00', label: '● Green', style: 'color: #00ff00' },
+                            { value: '#00ffff', label: '● Cyan', style: 'color: #00ffff' },
+                            { value: '#ff69b4', label: '● Pink', style: 'color: #ff69b4' }
+                        ];
+                        break;
+                    case 'style-opacity':
+                        label = 'Text Opacity';
+                        actionName = 'set-font-opacity';
+                        currentVal = String(prefs.fontOpacity);
+                        items = [
+                            { value: '1', label: '100%' },
+                            { value: '0.75', label: '75%' },
+                            { value: '0.5', label: '50%' },
+                            { value: '0.25', label: '25%' }
+                        ];
+                        break;
+                    case 'style-edge':
+                        label = 'Edge Style';
+                        actionName = 'set-edge-style';
+                        currentVal = prefs.edgeStyle;
+                        items = [
+                            { value: 'none', label: 'None' },
+                            { value: 'outline', label: 'Outline' },
+                            { value: 'shadow', label: 'Drop Shadow' },
+                            { value: 'raised', label: 'Raised' },
+                            { value: 'depressed', label: 'Depressed' }
+                        ];
+                        break;
+                    case 'style-bg':
+                        label = 'Background';
+                        // This is tricky because we have color AND opacity in one menu? 
+                        // Let's split them or combine them. For simplicity, let's keep them separate but here I'll just do Background Color first?
+                        // Or I can add sections WITHIN this submenu.
+                        // Let's do sections.
+                        break;
+                    case 'style-pos':
+                        label = 'Position';
+                        actionName = 'set-position';
+                        currentVal = prefs.position;
+                        items = [
+                            { value: 'bottom', label: 'Bottom' },
+                            { value: 'lower', label: 'Lower' },
+                            { value: 'middle', label: 'Middle' },
+                            { value: 'higher', label: 'Higher' }
+                        ];
+                        break;
+                }
 
-            if (submenu === 'style-bg') {
-                // Special handling for Background (Color + Opacity)
-                html += `<div class="shaka-settings-label">Color</div>`;
-                [
-                    { value: '#000000', label: '● Black', style: 'color: #999' },
-                    { value: '#ffffff', label: '● White', style: 'color: #ffffff' }
-                ].forEach(item => {
-                    const isActive = prefs.backgroundColor === item.value;
-                    html += `
+                if (submenu === 'style-bg') {
+                    // Special handling for Background (Color + Opacity)
+                    html += `<div class="shaka-settings-label">Color</div>`;
+                    [
+                        { value: '#000000', label: '● Black', style: 'color: #999' },
+                        { value: '#ffffff', label: '● White', style: 'color: #ffffff' }
+                    ].forEach(item => {
+                        const isActive = prefs.backgroundColor === item.value;
+                        html += `
                         <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-background-color" data-value="${item.value}">
                             <span style="${item.style || ''}">${item.label}</span>
                             ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                         </div>
                     `;
-                });
+                    });
 
-                html += `<div class="shaka-settings-label">Opacity</div>`;
-                [
-                    { value: '0', label: '0%' },
-                    { value: '0.25', label: '25%' },
-                    { value: '0.5', label: '50%' },
-                    { value: '0.75', label: '75%' },
-                    { value: '1', label: '100%' }
-                ].forEach(item => {
-                    const isActive = String(prefs.backgroundOpacity) === item.value;
-                    html += `
+                    html += `<div class="shaka-settings-label">Opacity</div>`;
+                    [
+                        { value: '0', label: '0%' },
+                        { value: '0.25', label: '25%' },
+                        { value: '0.5', label: '50%' },
+                        { value: '0.75', label: '75%' },
+                        { value: '1', label: '100%' }
+                    ].forEach(item => {
+                        const isActive = String(prefs.backgroundOpacity) === item.value;
+                        html += `
                         <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="set-background-opacity" data-value="${item.value}">
                             <span>${item.label}</span>
                             ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                         </div>
                     `;
-                });
+                    });
 
-            } else {
-                // Standard single-list submenu
-                html += `<div class="shaka-settings-label">${label}</div>`;
-                items.forEach(item => {
-                    const isActive = currentVal === item.value;
-                    html += `
+                } else {
+                    // Standard single-list submenu
+                    html += `<div class="shaka-settings-label">${label}</div>`;
+                    items.forEach(item => {
+                        const isActive = currentVal === item.value;
+                        html += `
                         <div class="shaka-settings-item ${isActive ? 'active' : ''}" data-action="${actionName}" data-value="${item.value}">
                             <span style="${item.style || ''}">${item.label}</span>
                             ${isActive ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>' : ''}
                         </div>
                     `;
-                });
-            }
+                    });
+                }
 
-        } else {
-            // Main menu
-            const textTracks = this.player.getTextTracks();
-            const isSubVisible = this.player.isTextTrackVisible();
-            const activeSubTrack = textTracks.find(t => t.active);
-            const subLabel = !isSubVisible ? 'Off' :
-                (activeSubTrack?.language === 'vi' ? 'Tiếng Việt' :
-                    activeSubTrack?.language === 'en' ? 'English' :
-                        activeSubTrack?.label || 'On');
+            } else {
+                // Main menu
+                const textTracks = this.player.getTextTracks();
+                const isSubVisible = this.player.isTextTrackVisible();
+                const activeSubTrack = textTracks.find(t => t.active);
+                const subLabel = !isSubVisible ? 'Off' :
+                    (activeSubTrack?.language === 'vi' ? 'Tiếng Việt' :
+                        activeSubTrack?.language === 'en' ? 'English' :
+                            activeSubTrack?.label || 'On');
 
-            const currentQuality = this.player.getVariantTracks().find(t => t.active)?.height + 'p' || 'Auto';
+                const activeTrack = this.player.getVariantTracks().find(t => t.active);
+                const currentQuality = activeTrack?.height ? `${activeTrack.height}p` : 'Auto';
 
-            html = `
+                html = `
                 <div class="shaka-settings-item" data-action="speed">
                     <span>Speed</span>
                     <span class="value">${this.video.playbackRate === 1 ? 'Normal' : this.video.playbackRate + 'x'}</span>
@@ -1242,139 +1340,153 @@ class ShakaPlayerController {
                     <span>Quality</span>
                     <span class="value">${currentQuality}</span>
                 </div>
+                <div class="shaka-settings-item" data-action="audio">
+                    <span>Audio</span>
+                    <span class="value">${this.getCurrentAudioLabel()}</span>
+                </div>
                 <div class="shaka-settings-item" data-action="subtitles">
                     <span>Subtitles</span>
                     <span class="value">${subLabel}</span>
                 </div>
             `;
-        }
+            }
 
-        this.settingsMenu.innerHTML = html;
+            this.settingsMenu.innerHTML = html;
 
-        // Bind settings actions
-        this.settingsMenu.querySelectorAll('.shaka-settings-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const action = item.dataset.action;
-                const value = item.dataset.value;
+            // Bind settings actions
+            this.settingsMenu.querySelectorAll('.shaka-settings-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const action = item.dataset.action;
+                    const value = item.dataset.value;
 
-                switch (action) {
-                    case 'speed':
-                        this.buildSettingsMenu('speed');
-                        break;
-                    case 'quality':
-                        this.buildSettingsMenu('quality');
-                        break;
-                    case 'subtitles':
-                        this.buildSettingsMenu('subtitles');
-                        break;
-                    case 'subtitle-style':
-                        this.buildSettingsMenu('subtitle-style');
-                        break;
-                    case 'back':
-                        this.buildSettingsMenu();
-                        break;
-                    case 'set-speed':
-                        this.video.playbackRate = parseFloat(value);
-                        this.buildSettingsMenu();
-                        break;
-                    case 'set-quality':
-                        if (value === 'auto') {
-                            // Enable ABR (auto quality)
-                            this.player.configure({ abr: { enabled: true } });
-                        } else {
-                            // Disable ABR and select specific quality
-                            this.player.configure({ abr: { enabled: false } });
-                            const targetTrack = tracks.find(t => t.height === parseInt(value));
-                            if (targetTrack) {
-                                this.player.selectVariantTrack(targetTrack, true);
+                    switch (action) {
+                        case 'speed':
+                            this.buildSettingsMenu('speed');
+                            break;
+                        case 'quality':
+                            this.buildSettingsMenu('quality');
+                            break;
+                        case 'subtitles':
+                            this.buildSettingsMenu('subtitles');
+                            break;
+                        case 'audio':
+                            this.buildSettingsMenu('audio');
+                            break;
+                        case 'subtitle-style':
+                            this.buildSettingsMenu('subtitle-style');
+                            break;
+                        case 'back':
+                            this.buildSettingsMenu();
+                            break;
+                        case 'set-speed':
+                            this.video.playbackRate = parseFloat(value);
+                            this.buildSettingsMenu();
+                            break;
+                        case 'set-quality':
+                            if (value === 'auto') {
+                                // Enable ABR (auto quality)
+                                this.player.configure({ abr: { enabled: true } });
+                            } else {
+                                // Disable ABR and select specific quality
+                                this.player.configure({ abr: { enabled: false } });
+                                const targetTrack = tracks.find(t => t.height === parseInt(value));
+                                if (targetTrack) {
+                                    this.player.selectVariantTrack(targetTrack, true);
+                                }
                             }
-                        }
-                        this.buildSettingsMenu();
-                        break;
-                    case 'set-subtitle':
-                        if (value === 'off') {
-                            this.player.setTextTrackVisibility(false);
-                        } else {
-                            const textTracks = this.player.getTextTracks();
-                            const trackIndex = parseInt(value);
-                            if (textTracks[trackIndex]) {
-                                this.player.selectTextTrack(textTracks[trackIndex]);
-                                this.player.setTextTrackVisibility(true);
-                                this.applySubtitleStyles();
+                            this.buildSettingsMenu();
+                            break;
+                        case 'set-subtitle':
+                            if (value === 'off') {
+                                this.player.setTextTrackVisibility(false);
+                            } else {
+                                const textTracks = this.player.getTextTracks();
+                                const trackIndex = parseInt(value);
+                                if (textTracks[trackIndex]) {
+                                    this.player.selectTextTrack(textTracks[trackIndex]);
+                                    this.player.setTextTrackVisibility(true);
+                                    this.applySubtitleStyles();
+                                }
                             }
-                        }
-                        this.buildSettingsMenu('subtitles');
-                        break;
-                    case 'upload-subtitle':
-                        // ... existing upload logic ...
-                        const fileInput = document.createElement('input');
-                        fileInput.type = 'file';
-                        fileInput.accept = '.vtt,.srt,.ass,.ssa';
-                        fileInput.onchange = (e) => {
-                            if (e.target.files[0]) {
-                                this.handleUserSubtitleUpload(e.target.files[0]);
-                            }
-                        };
-                        fileInput.click();
-                        this.settingsMenu.classList.remove('active');
-                        break;
+                            this.buildSettingsMenu('subtitles');
+                            break;
+                        case 'set-audio':
+                            this.player.selectAudioLanguage(value);
+                            this.buildSettingsMenu();
+                            break;
+                        case 'upload-subtitle':
+                            // ... existing upload logic ...
+                            const fileInput = document.createElement('input');
+                            fileInput.type = 'file';
+                            fileInput.accept = '.vtt,.srt,.ass,.ssa';
+                            fileInput.onchange = (e) => {
+                                if (e.target.files[0]) {
+                                    this.handleUserSubtitleUpload(e.target.files[0]);
+                                }
+                            };
+                            fileInput.click();
+                            this.settingsMenu.classList.remove('active');
+                            break;
 
-                    // Navigation to submenus
-                    case 'style-size':
-                    case 'style-family':
-                    case 'style-color':
-                    case 'style-opacity':
-                    case 'style-edge':
-                    case 'style-bg':
-                    case 'style-pos':
-                        this.buildSettingsMenu(action);
-                        break;
+                        // Navigation to submenus
+                        case 'style-size':
+                        case 'style-family':
+                        case 'style-color':
+                        case 'style-opacity':
+                        case 'style-edge':
+                        case 'style-bg':
+                        case 'style-pos':
+                            this.buildSettingsMenu(action);
+                            break;
 
-                    // Setting values
-                    case 'set-font-size':
-                        this.subtitlePrefs.fontSize = value;
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-size');
-                        break;
-                    case 'set-font-family':
-                        this.subtitlePrefs.fontFamily = value;
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-family');
-                        break;
-                    case 'set-font-color':
-                        this.subtitlePrefs.fontColor = value;
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-color');
-                        break;
-                    case 'set-font-opacity':
-                        this.subtitlePrefs.fontOpacity = parseFloat(value);
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-opacity');
-                        break;
-                    case 'set-edge-style':
-                        this.subtitlePrefs.edgeStyle = value;
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-edge');
-                        break;
-                    case 'set-background-color':
-                        this.subtitlePrefs.backgroundColor = value;
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-bg');
-                        break;
-                    case 'set-background-opacity':
-                        this.subtitlePrefs.backgroundOpacity = parseFloat(value);
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-bg');
-                        break;
-                    case 'set-position':
-                        this.subtitlePrefs.position = value;
-                        this.saveSubtitlePrefs();
-                        this.buildSettingsMenu('style-pos');
-                        break;
-                }
+                        // Setting values
+                        case 'set-font-size':
+                            this.subtitlePrefs.fontSize = value;
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-size');
+                            break;
+                        case 'set-font-family':
+                            this.subtitlePrefs.fontFamily = value;
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-family');
+                            break;
+                        case 'set-font-color':
+                            this.subtitlePrefs.fontColor = value;
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-color');
+                            break;
+                        case 'set-font-opacity':
+                            this.subtitlePrefs.fontOpacity = parseFloat(value);
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-opacity');
+                            break;
+                        case 'set-edge-style':
+                            this.subtitlePrefs.edgeStyle = value;
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-edge');
+                            break;
+                        case 'set-background-color':
+                            this.subtitlePrefs.backgroundColor = value;
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-bg');
+                            break;
+                        case 'set-background-opacity':
+                            this.subtitlePrefs.backgroundOpacity = parseFloat(value);
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-bg');
+                            break;
+                        case 'set-position':
+                            this.subtitlePrefs.position = value;
+                            this.saveSubtitlePrefs();
+                            this.buildSettingsMenu('style-pos');
+                            break;
+                    }
+                });
             });
-        });
+        } catch (e) {
+            console.error('Error building settings menu:', e);
+        }
     }
 
     // ==================== KEYBOARD SHORTCUTS ====================
@@ -1442,6 +1554,51 @@ class ShakaPlayerController {
 
     deleteCookie(name) {
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+
+    /**
+     * Get label for current audio track (includes channel info)
+     */
+    getCurrentAudioLabel() {
+        if (!this.player) return 'Original';
+        try {
+            // Shaka v4 compatible: get active variant track's language and channels
+            const variantTracks = this.player.getVariantTracks();
+            const activeTrack = variantTracks.find(t => t.active);
+
+            let lang = activeTrack?.language || 'und';
+            // Extract base language (jpn_0 -> jpn)
+            lang = lang.split('_')[0];
+            const langLabel = this.getAudioLanguageLabel(lang);
+
+            // Get channel count from active track
+            const channels = activeTrack?.channelsCount || 2;
+            const channelLabel = channels >= 6 ? '5.1' : 'Stereo';
+
+            return `${langLabel} (${channelLabel})`;
+        } catch (e) {
+            console.warn('Error getting audio label:', e);
+            return 'Original';
+        }
+    }
+
+    /**
+     * Get display label for audio language
+     */
+    getAudioLanguageLabel(lang) {
+        if (!lang || lang === 'und') return 'Original';
+        const map = {
+            'vi': 'Tiếng Việt',
+            'en': 'English',
+            'ja': '日本語',
+            'ko': '한국어',
+            'zh': '中文',
+            'fr': 'Français',
+            'es': 'Español',
+            'de': 'Deutsch',
+            'ru': 'Русский'
+        };
+        return map[lang] || lang.toUpperCase();
     }
 
     onError(event) {

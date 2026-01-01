@@ -1280,6 +1280,54 @@ function showEditEpisodeModal(videoId, movieId, episodeData) {
             </div>
         </div>
         
+        <div class="form-group">
+            <label>🔊 Quản lý Audio Tracks</label>
+            
+            <!-- Audio List -->
+            <div id="audio-track-list" style="margin-bottom: 15px;">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+            
+            <!-- Add New Audio -->
+            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-weight: 600; margin-bottom: 10px; font-size: 0.9em; color: var(--accent-blue);">➕ Thêm Audio Track mới</div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <select id="audio-lang-select" class="form-control" style="padding: 8px;" onchange="document.getElementById('audio-label-input').value = this.options[this.selectedIndex].text">
+                        <option value="vi">Tiếng Việt</option>
+                        <option value="en">English</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                        <option value="th">Thai</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <input type="text" id="audio-label-input" class="form-control" placeholder="Nhãn (ví dụ: Tiếng Việt)" value="Tiếng Việt">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <select id="audio-type-select" class="form-control" style="padding: 8px;">
+                        <option value="stereo">🎧 Stereo (2ch)</option>
+                        <option value="surround">🎬 Surround 5.1 (6ch)</option>
+                    </select>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="audio-is-default" style="width: auto;">
+                        <label for="audio-is-default" style="margin: 0; font-size: 0.9em; cursor: pointer;">Đặt làm mặc định</label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <input type="file" id="audio-file-input" accept=".mp3,.aac,.m4a,.wav,.flac,.ogg,.opus" class="form-control" style="flex: 1; font-size: 0.85em;">
+                    <button type="button" id="btn-upload-audio" class="btn-primary" style="white-space: nowrap;" onclick="uploadAudioTrack()">
+                        📤 Upload
+                    </button>
+                </div>
+                <div style="font-size: 0.8em; color: var(--text-muted); margin-top: 6px;">
+                    Hỗ trợ .mp3, .aac, .m4a, .wav (tự động convert sang AAC HLS)
+                </div>
+            </div>
+        </div>
+        
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
                 <label>⏭ Intro bắt đầu</label>
@@ -1312,6 +1360,8 @@ function showEditEpisodeModal(videoId, movieId, episodeData) {
 
     // Load subtitles
     loadEpisodeSubtitles(editingEpisodeId);
+    // Load audio tracks
+    loadEpisodeAudioTracks(editingEpisodeId);
 }
 
 function closeEditEpisodeModal() {
@@ -1537,6 +1587,160 @@ async function deleteSubtitle(subtitleId) {
 
         if (data.success) {
             await loadEpisodeSubtitles(editingEpisodeId);
+        } else {
+            alert('Lỗi: ' + data.error);
+        }
+    } catch (error) {
+        alert('Xóa thất bại: ' + error.message);
+    }
+}
+
+// ================================
+// Audio Track Management Functions
+// ================================
+
+let currentAudioTracks = [];
+
+/**
+ * Load audio tracks for an episode
+ */
+async function loadEpisodeAudioTracks(videoId) {
+    const listEl = document.getElementById('audio-track-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    try {
+        const response = await fetch(`/api/audio-tracks/list.php?video_id=${videoId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            currentAudioTracks = data.audio_tracks;
+            renderEpisodeAudioTracks();
+        } else {
+            listEl.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        console.error('Failed to load audio tracks:', error);
+        listEl.innerHTML = `<div class="error">Failed to load audio tracks</div>`;
+    }
+}
+
+/**
+ * Render audio track list
+ */
+function renderEpisodeAudioTracks() {
+    const listEl = document.getElementById('audio-track-list');
+    if (!listEl) return;
+
+    if (currentAudioTracks.length === 0) {
+        listEl.innerHTML = '<div class="empty-state" style="padding: 15px; text-align: center; font-style: italic; color: var(--text-muted); background: rgba(255,255,255,0.02); border-radius: 8px;">Chưa có audio track nào</div>';
+        return;
+    }
+
+    listEl.innerHTML = currentAudioTracks.map(track => `
+        <div class="subtitle-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); margin-bottom: 8px; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="badge" style="background: var(--accent-purple); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${track.language.toUpperCase()}</span>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: 500;">
+                        ${escapeHtml(track.label)}
+                        ${track.is_default == 1 ? '<span style="color: var(--warning); font-size: 0.8em; margin-left: 4px;">(Default)</span>' : ''}
+                    </span>
+                    <span style="font-size: 0.8em; color: var(--text-muted);">
+                        ${track.channels} channels • ${track.codec}
+                    </span>
+                </div>
+            </div>
+            <button type="button" class="btn-icon btn-danger" onclick="deleteAudioTrack(${track.id})" title="Xóa audio track">🗑️</button>
+        </div>
+    `).join('');
+}
+
+/**
+ * Upload audio track
+ */
+async function uploadAudioTrack() {
+    const fileInput = document.getElementById('audio-file-input');
+    const langInput = document.getElementById('audio-lang-select');
+    const labelInput = document.getElementById('audio-label-input');
+    const defaultInput = document.getElementById('audio-is-default');
+
+    const file = fileInput.files[0];
+    const language = langInput.value;
+    const label = labelInput.value.trim();
+    const isDefault = defaultInput.checked;
+
+    if (!file) {
+        alert('Vui lòng chọn file audio');
+        return;
+    }
+    if (!label) {
+        alert('Vui lòng nhập nhãn hiển thị');
+        return;
+    }
+
+    // Show loading state
+    const btn = document.getElementById('btn-upload-audio');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Uploading...';
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('video_id', editingEpisodeId);
+    formData.append('language', language);
+    formData.append('label', label);
+    formData.append('is_default', isDefault);
+    formData.append('audio_type', document.getElementById('audio-type-select').value);
+
+    try {
+        const response = await fetch('/api/audio-tracks/upload.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            fileInput.value = '';
+            labelInput.value = '';
+            defaultInput.checked = false;
+
+            await loadEpisodeAudioTracks(editingEpisodeId);
+
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 24px; border-radius: 8px; z-index: 9999;';
+            toast.textContent = 'Upload audio thành công!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        } else {
+            alert('Upload thất bại: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Lỗi upload: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Delete audio track
+ */
+async function deleteAudioTrack(trackId) {
+    if (!confirm('Bạn có chắc muốn xóa audio track này?')) return;
+
+    try {
+        const response = await fetch('/api/audio-tracks/delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: trackId })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            await loadEpisodeAudioTracks(editingEpisodeId);
         } else {
             alert('Lỗi: ' + data.error);
         }
